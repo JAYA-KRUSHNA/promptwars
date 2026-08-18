@@ -61,8 +61,18 @@ export const ReelCard: React.FC<ReelCardProps> = ({
 
   return (
     <div
+      role="checkbox"
+      aria-checked={isSelected}
+      tabIndex={0}
+      aria-label={`Reel ${index + 1}: ${reel.title} (${reel.category}, ${reel.engagement.watch_percent}% watch)`}
       onClick={() => onToggleSelect(reel.id)}
-      className={`group relative flex flex-col justify-between rounded-2xl border p-4 sm:p-5 transition-all duration-150 cursor-pointer ${
+      onKeyDown={(e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          onToggleSelect(reel.id);
+        }
+      }}
+      className={`group relative flex flex-col justify-between rounded-2xl border p-4 sm:p-5 transition-all duration-150 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/40 ${
         isSelected
           ? 'border-indigo-600 bg-white shadow-soft ring-1 ring-indigo-600/20'
           : 'border-slate-200/80 bg-white/70 opacity-75 hover:opacity-100 hover:border-slate-300 hover:bg-white shadow-2xs'

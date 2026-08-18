@@ -50,6 +50,9 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="catalog-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md animate-fadeIn"
     >
       <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
@@ -60,7 +63,7 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({
               <Database className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="text-base font-extrabold text-slate-900">
+              <h3 id="catalog-modal-title" className="text-base font-extrabold text-slate-900">
                 Curated Tech Reel Recommendation Catalog
               </h3>
               <p className="text-xs text-slate-500 font-medium">
@@ -71,6 +74,7 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({
 
           <button
             onClick={onClose}
+            aria-label="Close catalog modal"
             className="rounded-xl p-2 text-slate-400 hover:bg-slate-200/80 hover:text-slate-700 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />

@@ -219,6 +219,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col antialiased">
+      {/* Accessible Skip Link */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-xl focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-xs focus:font-bold focus:text-white focus:shadow-lg focus:outline-hidden"
+      >
+        Skip to main content
+      </a>
+
       {/* Header */}
       <Header
         onOpenCatalog={() => setIsCatalogOpen(true)}
@@ -233,7 +241,7 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 space-y-6">
+      <main id="main-content" tabIndex={-1} aria-label="Reels Recommendation Dashboard" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 space-y-6">
         {/* Session Selector Strip */}
         <SessionSelector
           sessions={sessionsList}

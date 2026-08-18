@@ -98,6 +98,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md animate-fadeIn"
     >
       <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
@@ -108,7 +111,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Key className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 id="settings-modal-title" className="text-base font-bold text-slate-900">
                 Gemini API & Model Settings
               </h3>
               <p className="text-xs text-slate-500">
@@ -119,6 +122,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={onClose}
+            aria-label="Close settings modal"
             className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
