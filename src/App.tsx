@@ -12,6 +12,7 @@ import { ReasoningReveal } from './components/ReasoningReveal';
 import { CatalogModal } from './components/CatalogModal';
 import { LoadingState } from './components/LoadingState';
 import { ErrorState } from './components/ErrorState';
+import { SettingsModal } from './components/SettingsModal';
 import {
   Sparkles,
   ArrowRight,
@@ -23,6 +24,7 @@ import {
   Eye,
   SlidersHorizontal,
   Dices,
+  Key,
 } from 'lucide-react';
 
 export default function App() {
@@ -39,11 +41,33 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCatalogOpen, setIsCatalogOpen] = useState<boolean>(false);
   const [showReasoningModal, setShowReasoningModal] = useState<boolean>(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [isKeyBannerDismissed, setIsKeyBannerDismissed] = useState<boolean>(false);
 
+  const [userApiKey, setUserApiKey] = useState<string>(
+    () => localStorage.getItem('reels_gemini_api_key') || ''
+  );
+  const [selectedModel, setSelectedModel] = useState<string>(
+    () => localStorage.getItem('reels_gemini_model') || 'gemini-2.5-flash'
+  );
+
   const currentSession: Session =
     sessionsList.find((s) => s.id === activeSessionId) || sessionsList[0] || SESSIONS[0];
+
+  const handleSaveApiKey = (key: string) => {
+    setUserApiKey(key);
+    if (key) {
+      localStorage.setItem('reels_gemini_api_key', key);
+    } else {
+      localStorage.removeItem('reels_gemini_api_key');
+    }
+  };
+
+  const handleSaveModel = (model: string) => {
+    setSelectedModel(model);
+    localStorage.setItem('reels_gemini_model', model);
+  };
 
   // Check API key configuration on mount
   useEffect(() => {
@@ -59,7 +83,7 @@ export default function App() {
       })
       .catch((err) => {
         console.warn('Health check fallback:', err);
-        setHasApiKey(true);
+        setHasApiKey(false);
       });
   }, []);
 
@@ -160,6 +184,8 @@ export default function App() {
           sessionId: activeSessionId,
           selectedReelIds: selectedReelIds,
           customReels: currentSession.reels,
+          apiKey: userApiKey || undefined,
+          model: selectedModel,
         }),
       });
 
@@ -189,11 +215,14 @@ export default function App() {
     }
   };
 
+  const isKeyAvailable = Boolean(hasApiKey || userApiKey);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased">
+    <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col antialiased">
       {/* Header */}
       <Header
         onOpenCatalog={() => setIsCatalogOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         onRegenerate={() => runAnalysis(activeView === 'recommendation' ? 'recommendation' : 'analysis')}
         isAnalyzing={isAnalyzing}
         activeView={activeView}
@@ -201,19 +230,26 @@ export default function App() {
         hasAnalysis={Boolean(analysisResult)}
         analysisSource={analysisSource}
         analysisLatency={analysisLatency}
+        hasApiKey={isKeyAvailable}
       />
 
       {/* Main Container */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 space-y-6">
         {/* Dismissible banner when running without Gemini API key */}
-        {hasApiKey === false && !isKeyBannerDismissed && (
+        {!isKeyAvailable && !isKeyBannerDismissed && (
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs text-amber-900 shadow-2xs">
             <div className="flex items-center gap-2.5">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[11px] font-bold text-amber-900">
                 ℹ
               </span>
               <span>
-                <strong>No active Gemini API key configured</strong> — using the resilient fallback reasoning engine. Add your <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber-950">GEMINI_API_KEY</code> to see live model inference.
+                <strong>No active Gemini API key configured</strong> — using the resilient fallback engine.{' '}
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="font-bold underline text-indigo-700 hover:text-indigo-900 cursor-pointer ml-1"
+                >
+                  Click here to paste your free Gemini API Key ⚙️
+                </button>
               </span>
             </div>
             <button
@@ -497,6 +533,17 @@ export default function App() {
         isOpen={isCatalogOpen}
         onClose={() => setIsCatalogOpen(false)}
         selectedId={analysisResult?.recommended_reel_id}
+      />
+
+      {/* API Key & Model Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        apiKey={userApiKey}
+        onSaveApiKey={handleSaveApiKey}
+        selectedModel={selectedModel}
+        onSaveModel={handleSaveModel}
+        hasServerKey={hasApiKey}
       />
 
       {/* Footer */}

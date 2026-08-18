@@ -37,7 +37,7 @@ export default async function handler(req: IncomingMessage & { body?: unknown; m
 
   try {
     const body = await parseBody(req);
-    const { sessionId, selectedReelIds, customReels } = body;
+    const { sessionId, selectedReelIds, customReels, apiKey, model } = body;
 
     let reelsToAnalyze: Reel[] = [];
 
@@ -62,7 +62,7 @@ export default async function handler(req: IncomingMessage & { body?: unknown; m
       reelsToAnalyze = SESSIONS[0].reels;
     }
 
-    const response = await analyzeSessionWithGemini(reelsToAnalyze, CATALOG);
+    const response = await analyzeSessionWithGemini(reelsToAnalyze, CATALOG, apiKey, model);
     res.statusCode = 200;
     res.end(
       JSON.stringify({

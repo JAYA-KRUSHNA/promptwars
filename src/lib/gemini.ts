@@ -7,21 +7,26 @@ import { SYSTEM_INSTRUCTION, buildUserPrompt } from './recommendationPrompt';
 // Shared Gemini client singleton
 // ═══════════════════════════════════════════════════════════════════════
 let aiClient: GoogleGenAI | null = null;
+let lastUsedKey: string | null = null;
 
-function getAiClient(): GoogleGenAI | null {
-  const key = process.env.GEMINI_API_KEY;
+function getAiClient(overrideKey?: string): GoogleGenAI | null {
+  const key =
+    (overrideKey && overrideKey.trim().length > 10 ? overrideKey.trim() : null) ||
+    process.env.GEMINI_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.API_KEY;
+
   if (!key || key === 'MY_GEMINI_API_KEY' || key === 'your_api_key_here' || key.trim().length < 10) {
     return null;
   }
-  if (!aiClient) {
+
+  const cleanKey = key.trim();
+  if (!aiClient || lastUsedKey !== cleanKey) {
     aiClient = new GoogleGenAI({
-      apiKey: key.trim(),
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
+      apiKey: cleanKey,
     });
+    lastUsedKey = cleanKey;
   }
   return aiClient;
 }
@@ -105,38 +110,43 @@ function postValidateAnalysis(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Gemini Live Inference (with fixed model names & retry)
+// Gemini Live Inference (with fixed model names & multi-model fallback)
 // ═══════════════════════════════════════════════════════════════════════
 export async function analyzeSessionWithGemini(
   sessionReels: Reel[],
-  catalog: CatalogReel[] = CATALOG
+  catalog: CatalogReel[] = CATALOG,
+  overrideApiKey?: string,
+  overrideModel?: string
 ): Promise<AnalysisResponse> {
-  const ai = getAiClient();
+  const ai = getAiClient(overrideApiKey);
   const startTime = Date.now();
 
   if (ai) {
     try {
       const userPrompt = buildUserPrompt(sessionReels, catalog);
 
-      // Use Gemini model names supported by the current API
+      // Candidate models in prioritized order
       const candidateModels = [
-        process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-        'gemini-3.5-flash',
-        'gemini-3.7-flash',
-      ].filter((v, i, a) => a.indexOf(v) === i);
+        overrideModel,
+        process.env.GEMINI_MODEL,
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-3.6-flash',
+      ].filter(Boolean) as string[];
 
       let responseText: string | null = null;
       let usedModel = candidateModels[0];
 
       for (const modelName of candidateModels) {
-        // Each model gets up to 2 attempts (retry once on 503)
+        // Each model gets up to 2 attempts
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
             const response = await ai.models.generateContent({
               model: modelName,
               contents: userPrompt,
               config: {
-                abortSignal: AbortSignal.timeout(30000), // 30s timeout for structured JSON
+                abortSignal: AbortSignal.timeout(18000), // 18s timeout for structured JSON
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: 'application/json',
                 temperature: 0.2,
