@@ -492,7 +492,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3 text-slate-400">
             {analysisSource === 'gemini' ? (
-              <span className="font-semibold text-emerald-600">⚡ Powered by Gemini 3.7 Flash</span>
+              <span className="font-semibold text-emerald-600">⚡ Powered by Gemini 3.6 Flash</span>
             ) : analysisSource === 'fallback' ? (
               <span className="font-semibold text-amber-600">🔧 Fallback Reasoning Engine Active</span>
             ) : (

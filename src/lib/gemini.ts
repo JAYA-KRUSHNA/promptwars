@@ -3,7 +3,9 @@ import { AnalysisResult, AnalysisResponse, CatalogReel, Reel } from './types';
 import { CATALOG } from '../data/catalog';
 import { SYSTEM_INSTRUCTION, buildUserPrompt } from './recommendationPrompt';
 
+// ═══════════════════════════════════════════════════════════════════════
 // Shared Gemini client singleton
+// ═══════════════════════════════════════════════════════════════════════
 let aiClient: GoogleGenAI | null = null;
 
 function getAiClient(): GoogleGenAI | null {
@@ -24,11 +26,9 @@ function getAiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
-/**
- * Post-validates a Gemini response to ensure catalog grounding and anti-hype compliance.
- * If the recommended reel is a hype distractor or doesn't exist in the catalog,
- * attempts to auto-correct by selecting the best non-hype candidate from the evaluations.
- */
+// ═══════════════════════════════════════════════════════════════════════
+// Post-validation: ensures catalog grounding and anti-hype compliance
+// ═══════════════════════════════════════════════════════════════════════
 function postValidateAnalysis(
   parsed: AnalysisResult,
   catalog: CatalogReel[]
@@ -104,6 +104,9 @@ function postValidateAnalysis(
   return { result: parsed, isValid: true };
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// Gemini Live Inference (with fixed model names & retry)
+// ═══════════════════════════════════════════════════════════════════════
 export async function analyzeSessionWithGemini(
   sessionReels: Reel[],
   catalog: CatalogReel[] = CATALOG
@@ -114,6 +117,8 @@ export async function analyzeSessionWithGemini(
   if (ai) {
     try {
       const userPrompt = buildUserPrompt(sessionReels, catalog);
+
+      // Use Gemini model names supported by the current API
       const candidateModels = [
         process.env.GEMINI_MODEL || 'gemini-3.6-flash',
         'gemini-3.5-flash',
@@ -124,119 +129,141 @@ export async function analyzeSessionWithGemini(
       let usedModel = candidateModels[0];
 
       for (const modelName of candidateModels) {
-        try {
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: userPrompt,
-            config: {
-              abortSignal: AbortSignal.timeout(15000),
-              systemInstruction: SYSTEM_INSTRUCTION,
-              responseMimeType: 'application/json',
-              temperature: 0.2,
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  interest_detected: { type: Type.STRING },
-                  underlying_cluster_summary: { type: Type.STRING },
-                  why: { type: Type.STRING },
-                  surface_vs_underlying: { type: Type.STRING },
-                  reel_signals: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        reel_id: { type: Type.STRING },
-                        reel_title: { type: Type.STRING },
-                        surface_topic: { type: Type.STRING },
-                        implied_signal: { type: Type.STRING },
-                        signal_strength: {
-                          type: Type.STRING,
-                          enum: ['positive', 'negative', 'neutral'],
+        // Each model gets up to 2 attempts (retry once on 503)
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: userPrompt,
+              config: {
+                abortSignal: AbortSignal.timeout(30000), // 30s timeout for structured JSON
+                systemInstruction: SYSTEM_INSTRUCTION,
+                responseMimeType: 'application/json',
+                temperature: 0.2,
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    interest_detected: { type: Type.STRING },
+                    underlying_cluster_summary: { type: Type.STRING },
+                    why: { type: Type.STRING },
+                    surface_vs_underlying: { type: Type.STRING },
+                    reel_signals: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          reel_id: { type: Type.STRING },
+                          reel_title: { type: Type.STRING },
+                          surface_topic: { type: Type.STRING },
+                          implied_signal: { type: Type.STRING },
+                          signal_strength: {
+                            type: Type.STRING,
+                            enum: ['positive', 'negative', 'neutral'],
+                          },
+                          weight_explanation: { type: Type.STRING },
                         },
-                        weight_explanation: { type: Type.STRING },
+                        required: [
+                          'reel_id',
+                          'reel_title',
+                          'surface_topic',
+                          'implied_signal',
+                          'signal_strength',
+                          'weight_explanation',
+                        ],
                       },
-                      required: [
-                        'reel_id',
-                        'reel_title',
-                        'surface_topic',
-                        'implied_signal',
-                        'signal_strength',
-                        'weight_explanation',
-                      ],
                     },
-                  },
-                  candidate_evaluations: {
-                    type: Type.ARRAY,
-                    items: {
+                    candidate_evaluations: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          catalog_id: { type: Type.STRING },
+                          title: { type: Type.STRING },
+                          evaluated_status: {
+                            type: Type.STRING,
+                            enum: ['selected', 'rejected_hype', 'rejected_redundant', 'rejected_mismatch'],
+                          },
+                          rationale: { type: Type.STRING },
+                        },
+                        required: ['catalog_id', 'title', 'evaluated_status', 'rationale'],
+                      },
+                    },
+                    recommended_reel_id: { type: Type.STRING },
+                    recommended_tech_reel: { type: Type.STRING },
+                    category: {
+                      type: Type.STRING,
+                      enum: ['HLD', 'DSA', 'AI', 'Java', 'Cloud', 'Hardware', 'Career', 'Cybersecurity', 'Other'],
+                    },
+                    why_this_recommendation: { type: Type.STRING },
+                    difficulty: {
+                      type: Type.STRING,
+                      enum: ['Beginner', 'Intermediate', 'Advanced'],
+                    },
+                    confidence: {
+                      type: Type.STRING,
+                      enum: ['High', 'Medium', 'Low'],
+                    },
+                    confidence_reasoning: { type: Type.STRING },
+                    alternative_recommendation: {
                       type: Type.OBJECT,
                       properties: {
                         catalog_id: { type: Type.STRING },
                         title: { type: Type.STRING },
-                        evaluated_status: {
+                        category: {
                           type: Type.STRING,
-                          enum: ['selected', 'rejected_hype', 'rejected_redundant', 'rejected_mismatch'],
+                          enum: ['HLD', 'DSA', 'AI', 'Java', 'Cloud', 'Hardware', 'Career', 'Cybersecurity', 'Other'],
                         },
-                        rationale: { type: Type.STRING },
+                        reason: { type: Type.STRING },
                       },
-                      required: ['catalog_id', 'title', 'evaluated_status', 'rationale'],
                     },
                   },
-                  recommended_reel_id: { type: Type.STRING },
-                  recommended_tech_reel: { type: Type.STRING },
-                  category: {
-                    type: Type.STRING,
-                    enum: ['HLD', 'DSA', 'AI', 'Java', 'Cloud', 'Hardware', 'Career', 'Cybersecurity', 'Other'],
-                  },
-                  why_this_recommendation: { type: Type.STRING },
-                  difficulty: {
-                    type: Type.STRING,
-                    enum: ['Beginner', 'Intermediate', 'Advanced'],
-                  },
-                  confidence: {
-                    type: Type.STRING,
-                    enum: ['High', 'Medium', 'Low'],
-                  },
-                  confidence_reasoning: { type: Type.STRING },
-                  alternative_recommendation: {
-                    type: Type.OBJECT,
-                    properties: {
-                      catalog_id: { type: Type.STRING },
-                      title: { type: Type.STRING },
-                      category: {
-                        type: Type.STRING,
-                        enum: ['HLD', 'DSA', 'AI', 'Java', 'Cloud', 'Hardware', 'Career', 'Cybersecurity', 'Other'],
-                      },
-                      reason: { type: Type.STRING },
-                    },
-                  },
+                  required: [
+                    'interest_detected',
+                    'underlying_cluster_summary',
+                    'why',
+                    'surface_vs_underlying',
+                    'reel_signals',
+                    'candidate_evaluations',
+                    'recommended_reel_id',
+                    'recommended_tech_reel',
+                    'category',
+                    'why_this_recommendation',
+                    'difficulty',
+                    'confidence',
+                    'confidence_reasoning',
+                  ],
                 },
-                required: [
-                  'interest_detected',
-                  'underlying_cluster_summary',
-                  'why',
-                  'surface_vs_underlying',
-                  'reel_signals',
-                  'candidate_evaluations',
-                  'recommended_reel_id',
-                  'recommended_tech_reel',
-                  'category',
-                  'why_this_recommendation',
-                  'difficulty',
-                  'confidence',
-                  'confidence_reasoning',
-                ],
               },
-            },
-          });
+            });
 
-          if (response.text) {
-            responseText = response.text;
-            usedModel = modelName;
-            break;
+            if (response.text) {
+              responseText = response.text;
+              usedModel = modelName;
+              break;
+            }
+          } catch (modelErr: unknown) {
+            const is503 =
+              modelErr instanceof Error &&
+              (modelErr.message.includes('503') || modelErr.message.includes('UNAVAILABLE'));
+            const isTimeout =
+              modelErr instanceof Error &&
+              (modelErr.name === 'TimeoutError' || modelErr.name === 'AbortError');
+
+            if (is503 && attempt === 0) {
+              // Wait 2s before retry on 503
+              console.warn(`[Gemini] ${modelName} returned 503, retrying in 2s...`);
+              await new Promise((r) => setTimeout(r, 2000));
+              continue;
+            }
+
+            console.warn(
+              `[Gemini] ${modelName} attempt ${attempt + 1} failed:`,
+              modelErr instanceof Error ? modelErr.message : modelErr
+            );
+            break; // Move to next model
           }
-        } catch (modelErr: unknown) {
-          console.warn(`[Gemini] ${modelName} call failed, trying next candidate model if available:`, modelErr instanceof Error ? modelErr.message : modelErr);
         }
+        if (responseText) break; // Got a response, stop trying models
       }
 
       const latencyMs = Date.now() - startTime;
@@ -261,7 +288,7 @@ export async function analyzeSessionWithGemini(
         (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) ||
         (typeof err === 'object' && err !== null && 'name' in err && (err as { name: string }).name === 'TimeoutError');
       const errorMessage = isTimeout
-        ? 'Gemini API call timed out after 20 seconds.'
+        ? 'Gemini API call timed out after 30 seconds.'
         : err instanceof Error
           ? err.message
           : 'Gemini live analysis failed';
@@ -276,6 +303,205 @@ export async function analyzeSessionWithGemini(
   const latencyMs = Date.now() - startTime;
   return { analysis: fallbackResult, source: 'fallback', latencyMs };
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ═══════════ CONTENT-AWARE DETERMINISTIC SCORING ENGINE ══════════════
+// ═══════════════════════════════════════════════════════════════════════
+
+// ── Stopwords for keyword extraction ──────────────────────────────────
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+  'of', 'with', 'by', 'from', 'is', 'it', 'its', 'are', 'was', 'were',
+  'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+  'will', 'would', 'could', 'should', 'may', 'might', 'shall', 'can',
+  'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'we',
+  'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his',
+  'our', 'their', 'not', 'no', 'nor', 'so', 'if', 'then', 'than',
+  'too', 'very', 'just', 'about', 'up', 'out', 'all', 'also', 'how',
+  'what', 'when', 'where', 'which', 'who', 'why', 'vs', 'using',
+  'while', 'into', 'over', 'after', 'before', 'between', 'under',
+  'during', 'without', 'within', 'through', 'against', 'each', 'every',
+  'both', 'few', 'more', 'most', 'other', 'some', 'such', 'only',
+]);
+
+/**
+ * Extract meaningful keywords from a text string.
+ * Removes stopwords, short tokens, and normalizes to lowercase.
+ */
+function extractKeywords(text: string): Set<string> {
+  if (!text) return new Set();
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9#+\-_]/g, ' ')  // Keep letters, numbers, #, +, -, _
+      .split(/\s+/)
+      .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
+  );
+}
+
+/**
+ * Compute the overlap ratio between two keyword sets.
+ * Returns a value between 0.0 and 1.0 (Jaccard-like similarity).
+ */
+function keywordOverlap(setA: Set<string>, setB: Set<string>): number {
+  if (setA.size === 0 || setB.size === 0) return 0;
+  let intersection = 0;
+  for (const word of setA) {
+    if (setB.has(word)) intersection++;
+  }
+  // Use the smaller set size for normalization (more generous than pure Jaccard)
+  const minSize = Math.min(setA.size, setB.size);
+  return intersection / minSize;
+}
+
+/**
+ * Semantic category mapping: maps reel-level categories to catalog item IDs
+ * with relative affinity weights. This is the "brain" of the content-aware engine.
+ */
+const CATEGORY_CATALOG_AFFINITY: Record<string, { id: string; weight: number }[]> = {
+  'Java': [
+    { id: 'cat_07', weight: 4.0 },  // Java GC Deep Dive
+    { id: 'cat_08', weight: 3.5 },  // Spring Boot Microservices
+    { id: 'cat_14', weight: 1.0 },  // Senior Engineers (backend career)
+  ],
+  'AI': [
+    { id: 'cat_05', weight: 4.0 },  // Transformers / Attention
+    { id: 'cat_06', weight: 3.5 },  // Neural Network in Python
+    { id: 'cat_11', weight: 1.0 },  // GPU tensor acceleration (adjacent)
+  ],
+  'Hardware': [
+    { id: 'cat_11', weight: 3.5 },  // GPU Architecture
+    { id: 'cat_12', weight: 4.0 },  // CPU Cache Hierarchy
+  ],
+  'Career': [
+    { id: 'cat_13', weight: 4.0 },  // FAANG Interview Prep
+    { id: 'cat_14', weight: 3.5 },  // Senior Engineers
+    { id: 'cat_03', weight: 1.0 },  // REST vs GraphQL (practical skills)
+  ],
+  'Web': [
+    { id: 'cat_01', weight: 2.0 },  // DNS Resolution
+    { id: 'cat_03', weight: 3.5 },  // REST vs GraphQL
+    { id: 'cat_04', weight: 2.5 },  // Rate Limiter
+    { id: 'cat_15', weight: 1.5 },  // SQL Injection (web security)
+  ],
+  'Cloud': [
+    { id: 'cat_09', weight: 4.0 },  // AWS Lambda vs EC2
+    { id: 'cat_10', weight: 3.5 },  // Kubernetes
+    { id: 'cat_04', weight: 1.5 },  // Rate Limiter (distributed systems)
+  ],
+  'Cybersecurity': [
+    { id: 'cat_15', weight: 4.5 },  // SQL Injection
+    { id: 'cat_03', weight: 1.0 },  // API security awareness
+  ],
+  'DSA': [
+    { id: 'cat_02', weight: 4.0 },  // Binary Search
+    { id: 'cat_04', weight: 2.5 },  // Rate Limiter (algorithm design)
+    { id: 'cat_13', weight: 1.5 },  // FAANG Interview (DSA bridge)
+  ],
+  'HLD': [
+    { id: 'cat_01', weight: 3.0 },  // DNS
+    { id: 'cat_03', weight: 3.5 },  // REST vs GraphQL
+    { id: 'cat_04', weight: 3.0 },  // Rate Limiter
+    { id: 'cat_10', weight: 2.0 },  // Kubernetes
+  ],
+  'Other': [
+    { id: 'cat_14', weight: 2.0 },  // Senior Engineers (general engineering)
+    { id: 'cat_03', weight: 2.0 },  // REST vs GraphQL
+    { id: 'cat_04', weight: 1.5 },  // Rate Limiter
+  ],
+  // Non-tech categories — give gentle exploration defaults
+  'Lifestyle': [
+    { id: 'cat_01', weight: 1.0 },  // DNS (beginner friendly)
+    { id: 'cat_02', weight: 1.0 },  // Binary Search (beginner)
+    { id: 'cat_13', weight: 0.8 },  // FAANG Interview (aspirational)
+  ],
+  'Entertainment': [
+    { id: 'cat_01', weight: 0.8 },  // DNS (exploratory)
+    { id: 'cat_02', weight: 0.8 },  // Binary Search
+    { id: 'cat_13', weight: 0.5 },  // FAANG Interview
+  ],
+};
+
+/**
+ * Format-based intent signals: what the reel format implies about the viewer's depth.
+ */
+const FORMAT_INTENT: Record<string, { difficultyBias: string; intentWeight: number }> = {
+  'tutorial': { difficultyBias: 'Intermediate', intentWeight: 1.3 },
+  'explainer': { difficultyBias: 'Intermediate', intentWeight: 1.4 },
+  'comparison': { difficultyBias: 'Intermediate', intentWeight: 1.2 },
+  'meme': { difficultyBias: 'Beginner', intentWeight: 0.7 },
+  'skit': { difficultyBias: 'Beginner', intentWeight: 0.8 },
+  'vlog': { difficultyBias: 'Beginner', intentWeight: 0.9 },
+  'news': { difficultyBias: 'Beginner', intentWeight: 0.6 },
+  'podcast': { difficultyBias: 'Intermediate', intentWeight: 1.1 },
+};
+
+/**
+ * Per-reel signal extraction with content-aware implied signals.
+ */
+function extractReelSignal(r: Reel) {
+  const isSkipped = r.engagement.skipped_early || r.engagement.watch_percent < 30;
+  const isPositive = !isSkipped && (r.engagement.watch_percent >= 75 || r.engagement.liked || r.engagement.rewatch_count > 0);
+  const strength: 'positive' | 'negative' | 'neutral' = isSkipped ? 'negative' : isPositive ? 'positive' : 'neutral';
+
+  // Build a content-aware implied signal from the reel's actual data
+  const keywords = extractKeywords(r.transcript_or_caption);
+  const topKeywords = Array.from(keywords).slice(0, 5).join(', ');
+
+  let implied: string;
+  if (isSkipped) {
+    implied = `Rejection of ${r.category} content — skipped at ${r.engagement.watch_percent}%, indicating format or topic mismatch`;
+  } else if (isPositive) {
+    implied = `Strong genuine interest in ${r.category} (${topKeywords}) — high engagement confirms deep resonance`;
+  } else {
+    implied = `Passive exposure to ${r.category} concepts (${topKeywords}) — moderate watch without strong commitment signals`;
+  }
+
+  // Build weight explanation from telemetry
+  let weightText = `${r.engagement.watch_percent}% watch time`;
+  if (r.engagement.rewatch_count > 0) weightText += ` + ${r.engagement.rewatch_count} rewatch`;
+  if (r.engagement.liked) weightText += ` + Liked`;
+  if (r.engagement.shared) weightText += ` + Shared`;
+  if (isSkipped) weightText = `Skipped early (${r.engagement.watch_percent}%) — negative penalty`;
+
+  return {
+    reel_id: r.id,
+    reel_title: r.title,
+    surface_topic: r.category,
+    implied_signal: implied,
+    signal_strength: strength,
+    weight_explanation: weightText,
+  };
+}
+
+/**
+ * Compute engagement weight for a single reel.
+ * Positive engagement amplifies affinity, negative suppresses.
+ */
+function computeEngagementWeight(r: Reel): number {
+  const isSkipped = r.engagement.skipped_early || r.engagement.watch_percent < 30;
+
+  if (isSkipped) {
+    return -2.5; // Strong negative — actively rejected
+  }
+
+  // Continuous score based on engagement depth
+  const watchScore = (r.engagement.watch_percent / 100) * 1.5;  // 0.0 – 1.5
+  const rewatchScore = r.engagement.rewatch_count * 1.2;         // 0 or 1.2+
+  const likeScore = r.engagement.liked ? 0.8 : 0;
+  const shareScore = r.engagement.shared ? 1.0 : 0;
+
+  // Neutral floor: even without likes, moderate watch time contributes
+  const neutralFloor = r.engagement.watch_percent >= 40 ? 0.3 : 0;
+
+  return watchScore + rewatchScore + likeScore + shareScore + neutralFloor;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ═══════════ MAIN DETERMINISTIC ANALYSIS ENGINE ══════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 
 export function generateDeterministicAnalysis(
   reels: Reel[],
@@ -303,116 +529,166 @@ export function generateDeterministicAnalysis(
   }
 
   // ── 1. Extract Signals ──────────────────────────────────────────────
-  const reelSignals = reels.map((r) => {
-    const isSkipped = r.engagement.skipped_early || r.engagement.watch_percent < 30;
-    const isPositive = !isSkipped && (r.engagement.watch_percent >= 75 || r.engagement.liked || r.engagement.rewatch_count > 0);
-    const strength: 'positive' | 'negative' | 'neutral' = isSkipped ? 'negative' : isPositive ? 'positive' : 'neutral';
+  const reelSignals = reels.map(extractReelSignal);
 
-    const getBaseId = (id: string) => id.split('_rand_')[0];
-    const baseId = getBaseId(r.id);
-
-    const signalMap: Record<string, { surface: string; implied: string }> = {
-      reel_01:  { surface: 'Java Syntax / Compile Error', implied: 'Relatable programmer identity & collegiate developer humor' },
-      reel_02:  { surface: 'Google Microkitchen & Lifestyle', implied: 'Professional software engineering career aspiration' },
-      reel_03:  { surface: 'Job Interview Skit', implied: 'Active preparation for technical & behavioral hiring pipelines' },
-      reel_04:  { surface: 'Laptop Buying Guide', implied: 'Developer tooling ergonomics and Docker container environments' },
-      reel_05:  { surface: 'AI Productivity Extensions', implied: 'Strong rejection of low-substance clickbait' },
-      reel_06:  { surface: 'Git CLI Command Syntax', implied: 'Team collaboration hygiene and version control standards' },
-      reel_201: { surface: 'Java Eden Memory', implied: 'Low-level JVM heap layout and minor GC promotion thresholds' },
-      reel_202: { surface: 'Synchronized vs Locks', implied: 'Concurrency mechanics and AbstractQueuedSynchronizer' },
-      reel_203: { surface: 'Spring @Autowired', implied: 'Enterprise IoC container reflection and microservices architecture' },
-      reel_204: { surface: 'Java Generics Erasure', implied: 'Bytecode type erasure and synthetic bridge methods' },
-      reel_301: { surface: '3D Backprop Animation', implied: 'Mathematical multivariate calculus for neural training' },
-      reel_302: { surface: 'Attention Softmax Formula', implied: 'Theoretical self-attention matrix math and temperature scaling' },
-      reel_303: { surface: 'AI Will Replace Coders Skit', implied: 'Rejection of apocalyptic clickbait fearmongering' },
-      reel_304: { surface: 'Python For-Loop Benchmark', implied: 'SIMD vectorization and contiguous memory layout in NumPy' },
-      reel_401: { surface: 'TSMC Lithography', implied: 'Physical semiconductor fabrication and EUV lithography' },
-      reel_402: { surface: 'Cache vs RAM Speed', implied: 'Memory hierarchy latency physics and cache-aligned data layout' },
-      reel_403: { surface: 'GPU Cores vs CPU Cores', implied: 'Throughput parallel SIMD vs low-latency out-of-order execution' },
-    };
-
-    const mapped = signalMap[baseId] || signalMap[r.id];
-    const surface = mapped ? mapped.surface : r.category;
-    const implied = mapped
-      ? mapped.implied
-      : isPositive
-      ? `Genuine interest in ${r.category} concepts`
-      : isSkipped
-      ? `Rejection of superficial ${r.category} format`
-      : `Casual peripheral ${r.category} browsing`;
-
-    let weightText = `${r.engagement.watch_percent}% watch time`;
-    if (r.engagement.rewatch_count > 0) weightText += ` + ${r.engagement.rewatch_count} rewatch`;
-    if (r.engagement.liked) weightText += ` + Liked`;
-    if (r.engagement.shared) weightText += ` + Shared`;
-    if (isSkipped) weightText = `Skipped early (${r.engagement.watch_percent}%) — negative penalty`;
-
-    return { reel_id: r.id, reel_title: r.title, surface_topic: surface, implied_signal: implied, signal_strength: strength, weight_explanation: weightText };
-  });
-
-  // ── 2. Compute Affinity Scores ──────────────────────────────────────
+  // ── 2. Initialize Catalog Scores ────────────────────────────────────
   const scores: Record<string, number> = {};
   catalog.forEach((c) => { scores[c.id] = 0; });
 
-  // Mapping: each catalog item → what reel IDs / hashtags boost it, and by how much
-  const affinityRules: { match: (r: Reel) => boolean; boosts: Record<string, number> }[] = [
-    // Interview skit / prep → FAANG Interview (strong) + Senior Engineers (moderate)
-    { match: (r) => r.id.startsWith('reel_03') || r.hashtags.some(t => ['techinterview', 'faangprep', 'behavioralprep'].includes(t)),
-      boosts: { cat_13: 4.0, cat_14: 1.5 } },
-    // Google vlog / engineering culture → Senior Engineers (strong) + FAANG Interview (moderate) + REST/GraphQL (light)
-    { match: (r) => r.id.startsWith('reel_02') || r.hashtags.some(t => ['swe', 'google', 'techcareer'].includes(t)),
-      boosts: { cat_14: 3.5, cat_13: 1.8, cat_03: 1.5 } },
-    // Git rebase / team workflow → Senior Engineers + REST/GraphQL
-    { match: (r) => r.id.startsWith('reel_06') || r.hashtags.some(t => ['git', 'engineeringbestpractices', 'versioncontrol'].includes(t)),
-      boosts: { cat_14: 3.0, cat_03: 2.0, cat_04: 1.0 } },
-    // Java meme → light developer culture, very low Java GC weight
-    { match: (r) => r.id.startsWith('reel_01') || r.hashtags.some(t => ['javameme', 'codinghumor'].includes(t)),
-      boosts: { cat_14: 1.0, cat_07: 0.2 } },
-    // Hardware setup / ergonomics → light cache + career
-    { match: (r) => r.id.startsWith('reel_04') || r.hashtags.some(t => ['developergear', 'macbook', 'setuptour'].includes(t)),
-      boosts: { cat_14: 0.8, cat_12: 0.6 } },
-    // JVM Internals (Eden/Locks/Generics)
-    { match: (r) => ['reel_201', 'reel_202', 'reel_204'].some(id => r.id.startsWith(id)) || r.hashtags.some(t => ['jvm', 'locks', 'memoryallocation', 'generics'].includes(t)),
-      boosts: { cat_07: 4.0, cat_08: 2.0 } },
-    // Spring Boot
-    { match: (r) => r.id.startsWith('reel_203') || r.hashtags.some(t => ['springboot', 'javaframework'].includes(t)),
-      boosts: { cat_08: 4.5, cat_07: 2.0 } },
-    // Backprop / Attention math → Transformers (strong) + Neural Net coding (moderate)
-    { match: (r) => ['reel_301', 'reel_302'].some(id => r.id.startsWith(id)) || r.hashtags.some(t => ['backprop', 'attentionmechanism', 'transformers', 'deeplearningmath'].includes(t)),
-      boosts: { cat_05: 4.0, cat_06: 2.5 } },
-    // NumPy / Python ML → Neural Net coding (strong) + Transformers (moderate)
-    { match: (r) => r.id.startsWith('reel_304') || r.hashtags.some(t => ['numpy', 'pythonperformance'].includes(t)),
-      boosts: { cat_06: 4.0, cat_05: 2.0 } },
-    // GPU / SIMD → GPU tensor (strong) + CPU cache (moderate)
-    { match: (r) => r.id.startsWith('reel_403') || r.hashtags.some(t => ['gpu', 'simd'].includes(t)),
-      boosts: { cat_11: 4.5, cat_12: 2.5 } },
-    // TSMC / CPU cache latency → CPU cache (strong) + GPU tensor (moderate)
-    { match: (r) => ['reel_401', 'reel_402'].some(id => r.id.startsWith(id)) || r.hashtags.some(t => ['cpu', 'semiconductors', 'memorylatency', 'chipdesign'].includes(t)),
-      boosts: { cat_12: 4.0, cat_11: 2.0 } },
-    // Lifestyle / web / entertainment → DNS (light) + Binary Search (light)
-    { match: (r) => r.hashtags.some(t => ['cooking', 'pets', 'css', 'webdesign', 'keyboards'].includes(t)),
-      boosts: { cat_01: 1.5, cat_02: 1.0 } },
-  ];
+  // Pre-compute catalog keyword sets for transcript matching
+  const catalogKeywordSets: Record<string, Set<string>> = {};
+  catalog.forEach((c) => {
+    const combined = `${c.title} ${c.description} ${c.tags.join(' ')}`;
+    catalogKeywordSets[c.id] = extractKeywords(combined);
+  });
 
+  // ── 3. FACTOR 1: Category Affinity (weight: 3.0) ───────────────────
+  //    Map each reel's category to catalog items via semantic mapping
   reels.forEach((r) => {
-    const isSkipped = r.engagement.skipped_early || r.engagement.watch_percent < 30;
-    const engagementWeight = isSkipped
-      ? -2.0
-      : (r.engagement.watch_percent / 100) * 1.5
-        + r.engagement.rewatch_count * 1.0
-        + (r.engagement.liked ? 0.8 : 0)
-        + (r.engagement.shared ? 1.0 : 0);
+    const engWeight = computeEngagementWeight(r);
+    const category = r.category;
 
-    for (const rule of affinityRules) {
-      if (rule.match(r)) {
-        for (const [catId, multiplier] of Object.entries(rule.boosts)) {
-          scores[catId] = (scores[catId] || 0) + engagementWeight * multiplier;
+    const affinities = CATEGORY_CATALOG_AFFINITY[category];
+    if (affinities) {
+      for (const { id, weight } of affinities) {
+        if (scores[id] !== undefined) {
+          scores[id] += engWeight * weight * 0.75; // Factor 1 global scale
         }
       }
     }
   });
 
-  // ── 3. Select Winner (excluding hype distractors) ───────────────────
+  // ── 4. FACTOR 2: Hashtag → Catalog Tag Overlap (weight: 2.5) ───────
+  //    Compare reel hashtags against catalog item tags
+  reels.forEach((r) => {
+    const engWeight = computeEngagementWeight(r);
+    const reelHashtags = new Set(r.hashtags.map((h) => h.toLowerCase()));
+
+    catalog.forEach((c) => {
+      // Normalize catalog tags for comparison
+      const catalogTags = new Set(
+        c.tags.map((t) => t.toLowerCase().replace(/\s+/g, ''))
+      );
+      // Also create individual word tokens from multi-word tags
+      const catalogTagWords = new Set<string>();
+      c.tags.forEach((t) => {
+        t.toLowerCase().split(/\s+/).forEach((word) => {
+          if (word.length >= 3) catalogTagWords.add(word);
+        });
+      });
+
+      // Check direct overlap: hashtag matches a joined tag
+      let overlapScore = 0;
+      for (const hashtag of reelHashtags) {
+        if (catalogTags.has(hashtag)) {
+          overlapScore += 2.0; // Direct match is very strong
+        } else if (catalogTagWords.has(hashtag)) {
+          overlapScore += 1.2; // Partial word match
+        } else {
+          // Check if hashtag is a substring of any tag or vice versa
+          for (const tag of catalogTags) {
+            if (tag.includes(hashtag) || hashtag.includes(tag)) {
+              overlapScore += 0.6;
+              break;
+            }
+          }
+        }
+      }
+
+      if (overlapScore > 0) {
+        // Normalize by hashtag count to avoid bias toward reels with many tags
+        const normalized = overlapScore / Math.max(reelHashtags.size, 1);
+        scores[c.id] += engWeight * normalized * 2.5; // Factor 2 scale
+      }
+    });
+  });
+
+  // ── 5. FACTOR 3: Transcript Keyword → Catalog Description (weight: 2.0)
+  //    Content-aware: extract keywords from transcript and match catalog descriptions
+  reels.forEach((r) => {
+    const engWeight = computeEngagementWeight(r);
+    const reelKeywords = extractKeywords(r.transcript_or_caption);
+
+    // Also include title keywords
+    const titleKeywords = extractKeywords(r.title);
+    titleKeywords.forEach((k) => reelKeywords.add(k));
+
+    catalog.forEach((c) => {
+      const catKeywords = catalogKeywordSets[c.id];
+      const overlap = keywordOverlap(reelKeywords, catKeywords);
+
+      if (overlap > 0) {
+        scores[c.id] += engWeight * overlap * 6.0; // Factor 3 scale (strong influence)
+      }
+    });
+  });
+
+  // ── 6. FACTOR 4: Format-Based Intent Signals (weight: 1.0) ─────────
+  //    Tutorial/explainer viewers → boost intermediate/advanced items
+  //    Meme/skit viewers → boost beginner-friendly items
+  reels.forEach((r) => {
+    const engWeight = computeEngagementWeight(r);
+    if (engWeight <= 0) return; // Skip negative-engagement reels
+
+    const formatInfo = FORMAT_INTENT[r.format] || { difficultyBias: 'Beginner', intentWeight: 0.8 };
+
+    catalog.forEach((c) => {
+      if (c.is_hype_distractor) return;
+
+      // Boost catalog items whose difficulty matches the format's implied depth
+      let formatBoost = 0;
+      if (c.difficulty === formatInfo.difficultyBias) {
+        formatBoost = 0.5 * formatInfo.intentWeight;
+      } else if (
+        (formatInfo.difficultyBias === 'Intermediate' && c.difficulty === 'Advanced') ||
+        (formatInfo.difficultyBias === 'Advanced' && c.difficulty === 'Intermediate')
+      ) {
+        formatBoost = 0.3 * formatInfo.intentWeight; // Adjacent difficulty
+      }
+
+      if (formatBoost > 0) {
+        scores[c.id] += engWeight * formatBoost; // Factor 4 scale
+      }
+    });
+  });
+
+  // ── 7. FACTOR 5: Cross-Reel Cluster Detection (weight: 1.5) ────────
+  //    If multiple reels share the same category, amplify that category's catalog items
+  const categoryCounts: Record<string, { count: number; totalEngagement: number }> = {};
+  reels.forEach((r) => {
+    const engWeight = computeEngagementWeight(r);
+    if (!categoryCounts[r.category]) {
+      categoryCounts[r.category] = { count: 0, totalEngagement: 0 };
+    }
+    categoryCounts[r.category].count++;
+    categoryCounts[r.category].totalEngagement += engWeight;
+  });
+
+  for (const [category, { count, totalEngagement }] of Object.entries(categoryCounts)) {
+    if (count >= 2 && totalEngagement > 0) {
+      // Cluster bonus: 2 reels = 1.5x, 3 reels = 2.0x, 4+ reels = 2.5x
+      const clusterMultiplier = Math.min(1.0 + (count - 1) * 0.5, 2.5);
+
+      const affinities = CATEGORY_CATALOG_AFFINITY[category];
+      if (affinities) {
+        for (const { id, weight } of affinities) {
+          if (scores[id] !== undefined) {
+            scores[id] += totalEngagement * weight * clusterMultiplier * 0.4; // Cluster bonus scale
+          }
+        }
+      }
+    }
+  }
+
+  // ── 8. Anti-Hype Penalty ────────────────────────────────────────────
+  //    Ensure hype distractors never win even if they somehow scored
+  catalog.forEach((c) => {
+    if (c.is_hype_distractor) {
+      scores[c.id] = -Infinity;
+    }
+  });
+
+  // ── 9. Select Winner ───────────────────────────────────────────────
   const ranked = catalog
     .filter((c) => !c.is_hype_distractor)
     .map((c) => ({ ...c, score: scores[c.id] || 0 }))
@@ -422,79 +698,95 @@ export function generateDeterministicAnalysis(
   const runnerUp = ranked[1];
   const hypeItem = catalog.find((c) => c.is_hype_distractor) || catalog[15];
 
-  // ── 4. Build Candidate Audit Log ────────────────────────────────────
-  const evaluations = [
-    { catalog_id: winner.id, title: winner.title, evaluated_status: 'selected' as const,
-      rationale: `Top convergence match (score ${winner.score.toFixed(1)}): directly satisfies the student's strongest engagement signals.` },
-    { catalog_id: runnerUp.id, title: runnerUp.title, evaluated_status: 'selected' as const,
-      rationale: `Strong alternative (score ${runnerUp.score.toFixed(1)}): technical bridge for continuous progression.` },
-    { catalog_id: hypeItem.id, title: hypeItem.title, evaluated_status: 'rejected_hype' as const,
-      rationale: 'Rejected: Disqualified by anti-hype filter to preserve educational depth.' },
+  // ── 10. Build Candidate Audit Log ───────────────────────────────────
+  // Show top 5 candidates for transparency
+  const evaluations: { catalog_id: string; title: string; evaluated_status: 'selected' | 'rejected_hype' | 'rejected_redundant' | 'rejected_mismatch'; rationale: string }[] = [
+    {
+      catalog_id: winner.id,
+      title: winner.title,
+      evaluated_status: 'selected' as const,
+      rationale: `Top convergence match (score ${winner.score.toFixed(1)}): strongest multi-factor alignment with the student's active engagement signals across category affinity, content keywords, and hashtag overlap.`,
+    },
+    {
+      catalog_id: runnerUp.id,
+      title: runnerUp.title,
+      evaluated_status: 'selected' as const,
+      rationale: `Strong alternative (score ${runnerUp.score.toFixed(1)}): complementary technical depth from a different angle.`,
+    },
+    {
+      catalog_id: hypeItem.id,
+      title: hypeItem.title,
+      evaluated_status: 'rejected_hype' as const,
+      rationale: 'Rejected: Disqualified by anti-hype filter to preserve educational depth.',
+    },
   ];
 
-  // ── 5. Generate Dynamic Intent Summary ──────────────────────────────
-  const categoryDescriptions: Record<string, { interestTemplate: string; summary: string; why: string; trap: string }> = {
-    Career: {
-      interestTemplate: winner.id === 'cat_13' ? 'FAANG Technical & Behavioral Interview Mastery' : 'Software Engineering Career Velocity & Senior Architecture',
-      summary: 'The active watch selection demonstrates a focused transition into professional Big Tech engineering culture, behavioral hiring pipelines, and production team standards.',
-      why: 'The student prioritized engineering vlogs, interview preparation, and collaboration tooling while rejecting hype content.',
-      trap: 'A naive keyword matcher flags "Java" or "Hardware". The agent infers the true latent ambition: mastering engineering career velocity.',
-    },
-    Java: {
-      interestTemplate: winner.id === 'cat_08' ? 'Spring Boot Enterprise Microservices Architecture' : 'Java & JVM Low-Level Systems Engineering',
-      summary: 'Consistently deep engagement with JVM memory layouts, multithreading locks, and enterprise Spring framework.',
-      why: 'The watched reels exhibit technical depth on memory allocation and thread synchronization with high completion rates.',
-      trap: 'Unlike casual Java meme watchers, deep technical watch completion confirms genuine JVM backend systems engineering.',
-    },
-    AI: {
-      interestTemplate: winner.id === 'cat_06' ? 'Hands-On Neural Network Implementation & NumPy Optimization' : 'Deep Learning & Transformer Attention Mathematics',
-      summary: 'Analytical focus on foundational matrix calculus, temperature scaling, and vectorized dot products for machine learning.',
-      why: 'High completion on mathematical backpropagation and attention mechanisms combined with rejection of AI clickbait.',
-      trap: 'A naive matcher recommends AI tool listicles; the agent detects mathematical ML dedication and recommends theory.',
-    },
-    Hardware: {
-      interestTemplate: winner.id === 'cat_11' ? 'GPU Massively Parallel Architecture & Tensor Acceleration' : 'Computer Systems Architecture & Memory Hierarchy Physics',
-      summary: 'High curiosity regarding semiconductor lithography, memory latency hierarchies, and SIMD parallel processor designs.',
-      why: 'Sustained high watch times on physical semiconductor mechanics and processor architecture tradeoffs.',
-      trap: 'Surface hardware curiosity connects directly to low-level cache-aligned performance software engineering.',
-    },
-    HLD: {
-      interestTemplate: 'System Design & Internet Infrastructure Foundations',
-      summary: 'Exploratory browsing across lifestyle and surface concepts without a concentrated technical specialization.',
-      why: 'Dispersed watch history across varied topics without a strong recurring technical anchor.',
-      trap: 'A naive model would overfit to isolated keywords; the agent honestly recognizes diffuse exploration.',
-    },
-    DSA: {
-      interestTemplate: 'Algorithmic Problem Solving & Interview Preparation',
-      summary: 'Interest in foundational computer science algorithms and data structure patterns.',
-      why: 'Watch patterns suggest preparation for coding interviews or computer science coursework.',
-      trap: 'Surface topic matching misses the underlying problem-solving focus.',
-    },
-  };
+  // Add the 3rd-5th ranked items as rejected_mismatch for transparency
+  for (let i = 2; i < Math.min(5, ranked.length); i++) {
+    evaluations.push({
+      catalog_id: ranked[i].id,
+      title: ranked[i].title,
+      evaluated_status: 'rejected_mismatch' as const,
+      rationale: `Score ${ranked[i].score.toFixed(1)}: weaker multi-factor alignment compared to top candidates.`,
+    });
+  }
 
-  const desc = categoryDescriptions[winner.category] || categoryDescriptions['HLD'];
+  // ── 11. Generate Dynamic Intent Summary ─────────────────────────────
+  // Build intent summary from the actual content, not hardcoded templates
+  const positiveReels = reels.filter((r) => {
+    const engW = computeEngagementWeight(r);
+    return engW > 0;
+  });
+  const negativeReels = reels.filter((r) => {
+    return r.engagement.skipped_early || r.engagement.watch_percent < 30;
+  });
   const positiveCount = reelSignals.filter((s) => s.signal_strength === 'positive').length;
   const negativeCount = reelSignals.filter((s) => s.signal_strength === 'negative').length;
+
+  // Find the dominant category from positive reels
+  const dominantCategory = Object.entries(categoryCounts)
+    .filter(([_, v]) => v.totalEngagement > 0)
+    .sort((a, b) => b[1].totalEngagement - a[1].totalEngagement)[0]?.[0] || 'General';
+
+  // Count distinct positive categories for dispersion analysis
+  const distinctPositiveCategories = new Set(
+    positiveReels.map((r) => r.category)
+  ).size;
+
+  // Generate interest description based on winner and dominant signals
+  const interestDetected = generateInterestLabel(winner, dominantCategory, distinctPositiveCategories);
+  const clusterSummary = generateClusterSummary(positiveReels, negativeReels, winner, dominantCategory);
+  const whyText = generateWhyText(positiveReels, negativeReels, winner);
+  const trapText = generateTrapText(reels, winner, dominantCategory);
+
+  // ── 12. Confidence Calibration ──────────────────────────────────────
   const confidence: 'High' | 'Medium' | 'Low' =
-    winner.score <= 0 ? 'Low' : positiveCount >= 3 ? 'High' : positiveCount >= 1 ? 'Medium' : 'Low';
+    winner.score <= 0
+      ? 'Low'
+      : positiveCount >= 3 && distinctPositiveCategories <= 2
+        ? 'High'
+        : positiveCount >= 2
+          ? 'Medium'
+          : 'Low';
+
   const confidenceReasoning =
     confidence === 'High'
-      ? `Strong signal convergence across ${positiveCount} positive reels${negativeCount > 0 ? ` with ${negativeCount} active negative filter` : ''}.`
+      ? `Strong signal convergence: ${positiveCount} positive reels concentrated in ${distinctPositiveCategories} categor${distinctPositiveCategories === 1 ? 'y' : 'ies'}${negativeCount > 0 ? ` with ${negativeCount} active rejection filter${negativeCount > 1 ? 's' : ''}` : ''}. Winner score: ${winner.score.toFixed(1)}.`
       : confidence === 'Medium'
-      ? `Moderate signal from ${positiveCount} reel${positiveCount !== 1 ? 's' : ''}. Additional watch data would strengthen inference.`
-      : `Sparse or exploratory signals across disparate categories require calibrated Low confidence.`;
+        ? `Moderate signal from ${positiveCount} positive reel${positiveCount !== 1 ? 's' : ''} across ${distinctPositiveCategories} categories. Score gap: ${(winner.score - runnerUp.score).toFixed(1)}. Additional watch data would strengthen inference.`
+        : `Sparse or scattered signals across ${distinctPositiveCategories} disparate categories without a concentrated technical anchor. Calibrated Low confidence to avoid false precision.`;
 
   return {
-    interest_detected: desc.interestTemplate,
-    underlying_cluster_summary: desc.summary,
-    why: desc.why,
-    surface_vs_underlying: desc.trap,
+    interest_detected: interestDetected,
+    underlying_cluster_summary: clusterSummary,
+    why: whyText,
+    surface_vs_underlying: trapText,
     reel_signals: reelSignals,
     candidate_evaluations: evaluations,
     recommended_reel_id: winner.id,
     recommended_tech_reel: winner.title,
     category: winner.category,
-    why_this_recommendation: `This recommendation matches the inflection point in the student's active selection: ${winner.description}`,
+    why_this_recommendation: generateWhyThisRecommendation(positiveReels, negativeReels, winner, dominantCategory),
     difficulty: winner.difficulty,
     confidence,
     confidence_reasoning: confidenceReasoning,
@@ -502,8 +794,132 @@ export function generateDeterministicAnalysis(
       catalog_id: runnerUp.id,
       title: runnerUp.title,
       category: runnerUp.category,
-      reason: `Expands on the active watch signals from a complementary angle: ${runnerUp.description}`,
+      reason: `Complementary depth from a different angle: ${runnerUp.description}`,
     },
   };
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// ═══════════ DYNAMIC INTENT NARRATIVE GENERATORS ═════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+
+function generateInterestLabel(
+  winner: CatalogReel & { score: number },
+  dominantCategory: string,
+  distinctCategories: number
+): string {
+  // Only show "Exploratory" when there's genuinely no strong signal
+  // (many categories AND weak winner score). If the winner scored strongly,
+  // the engine found a clear convergence despite diverse input.
+  if (distinctCategories >= 4 && winner.score < 5.0) {
+    return 'Exploratory Multi-Topic Browsing & Discovery';
+  }
+
+  const categoryLabels: Record<string, string[]> = {
+    'Career': ['Software Engineering Career & Professional Growth', 'FAANG Interview Mastery & Tech Career Velocity'],
+    'Java': ['Java & JVM Systems Engineering Mastery', 'Spring Boot Enterprise Architecture & Backend Depth'],
+    'AI': ['Deep Learning & Neural Architecture Foundations', 'Hands-On ML Implementation & Mathematical Rigor'],
+    'Hardware': ['Computer Systems Architecture & Low-Level Engineering', 'GPU/CPU Architecture & Memory Hierarchy Physics'],
+    'HLD': ['System Design & Internet Infrastructure Foundations', 'Distributed Systems Architecture & API Design'],
+    'DSA': ['Algorithmic Problem Solving & Interview Preparation', 'Data Structures & Computational Complexity'],
+    'Cloud': ['Cloud Infrastructure & Container Orchestration', 'Serverless Architecture & DevOps Engineering'],
+    'Cybersecurity': ['Application Security & Vulnerability Analysis', 'Web Security Engineering & OWASP Fundamentals'],
+    'Web': ['Web Engineering & API Architecture', 'Frontend/Backend Integration Patterns'],
+  };
+
+  const labels = categoryLabels[winner.category] || categoryLabels[dominantCategory] || ['Technical Interest & Learning'];
+  // Use winner.id to deterministically pick between variants
+  const idx = parseInt(winner.id.replace('cat_', ''), 10) % labels.length;
+  return labels[idx];
+}
+
+function generateClusterSummary(
+  positiveReels: Reel[],
+  negativeReels: Reel[],
+  winner: CatalogReel & { score: number },
+  dominantCategory: string
+): string {
+  if (positiveReels.length === 0) {
+    return 'No clear positive engagement signals detected. Watch history is either skipped or passively consumed without commitment indicators.';
+  }
+
+  const posCategories = [...new Set(positiveReels.map((r) => r.category))];
+  const negCategories = [...new Set(negativeReels.map((r) => r.category))];
+
+  let summary = `The active watch selection demonstrates ${posCategories.length <= 2 ? 'focused' : 'broad'} engagement across ${posCategories.join(', ')}`;
+
+  if (negativeReels.length > 0) {
+    summary += `, while actively rejecting ${negCategories.join(', ')} content`;
+  }
+
+  summary += `. The convergence pattern points toward ${winner.title} as the strongest next learning frontier.`;
+
+  return summary;
+}
+
+function generateWhyText(
+  positiveReels: Reel[],
+  negativeReels: Reel[],
+  winner: CatalogReel & { score: number }
+): string {
+  const parts: string[] = [];
+
+  if (positiveReels.length > 0) {
+    const highEngagement = positiveReels.filter(
+      (r) => r.engagement.watch_percent >= 85 || r.engagement.rewatch_count > 0
+    );
+    if (highEngagement.length > 0) {
+      parts.push(
+        `${highEngagement.length} reel${highEngagement.length > 1 ? 's' : ''} received deep engagement (85%+ watch time or rewatches): "${highEngagement.map((r) => r.title).join('", "')}"`
+      );
+    }
+
+    const likedReels = positiveReels.filter((r) => r.engagement.liked);
+    if (likedReels.length > 0) {
+      parts.push(
+        `${likedReels.length} reel${likedReels.length > 1 ? 's were' : ' was'} explicitly liked, confirming deliberate interest`
+      );
+    }
+  }
+
+  if (negativeReels.length > 0) {
+    parts.push(
+      `${negativeReels.length} reel${negativeReels.length > 1 ? 's were' : ' was'} skipped early (<30% watch), acting as negative filters against superficial or mismatched content`
+    );
+  }
+
+  return parts.length > 0
+    ? parts.join('. ') + '.'
+    : `Watch patterns suggest ${winner.category} interest based on content alignment with "${winner.title}".`;
+}
+
+function generateTrapText(
+  reels: Reel[],
+  winner: CatalogReel & { score: number },
+  dominantCategory: string
+): string {
+  const allCategories = [...new Set(reels.map((r) => r.category))];
+  const naiveKeywords = allCategories.join(', ');
+
+  return `A naive keyword matcher sees surface categories: [${naiveKeywords}] and would likely match the most frequent keyword. The content-aware engine instead analyzes transcript semantics, engagement depth, hashtag-to-catalog tag overlap, and cross-reel clustering to identify that the true underlying intent converges on "${winner.title}" (${winner.category}).`;
+}
+
+function generateWhyThisRecommendation(
+  positiveReels: Reel[],
+  negativeReels: Reel[],
+  winner: CatalogReel & { score: number },
+  dominantCategory: string
+): string {
+  const topTopics = [...new Set(positiveReels.map((r) => r.category))].slice(0, 3).join(', ');
+  const likedCount = positiveReels.filter((r) => r.engagement.liked).length;
+  const rewatchedCount = positiveReels.filter((r) => r.engagement.rewatch_count > 0).length;
+
+  let connection = `Based on deep engagement with ${topTopics || dominantCategory} content`;
+  if (likedCount > 0 || rewatchedCount > 0) {
+    connection += ` (${likedCount > 0 ? `${likedCount} liked` : ''}${likedCount > 0 && rewatchedCount > 0 ? ', ' : ''}${rewatchedCount > 0 ? `${rewatchedCount} rewatched` : ''})`;
+  }
+  connection += `, "${winner.title}" provides the highest-impact conceptual bridge: ${winner.description}`;
+
+  return connection;
+}
