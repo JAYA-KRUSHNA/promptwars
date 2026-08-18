@@ -40,9 +40,8 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span
-                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                  confidenceColor[analysis.confidence] || 'bg-slate-100 text-slate-700'
-                }`}
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${confidenceColor[analysis.confidence] || 'bg-slate-100 text-slate-700'
+                  }`}
               >
                 Confidence: {analysis.confidence}
               </span>
@@ -54,11 +53,10 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
               </span>
               {source && (
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${
-                    source === 'gemini'
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${source === 'gemini'
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }`}
+                    }`}
                 >
                   {source === 'gemini' ? '⚡ Gemini Live' : '🔧 Fallback'}
                   {latencyMs != null && ` · ${(latencyMs / 1000).toFixed(1)}s`}
@@ -146,13 +144,12 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
                   </td>
                   <td className="py-2.5 px-3">
                     <span
-                      className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
-                        sig.signal_strength === 'positive'
+                      className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${sig.signal_strength === 'positive'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : sig.signal_strength === 'negative'
-                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
                     >
                       {sig.signal_strength}
                     </span>
