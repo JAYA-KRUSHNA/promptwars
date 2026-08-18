@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CatalogReel } from '../lib/types';
 import { X, Search, Filter, AlertTriangle, CheckCircle, Database } from 'lucide-react';
 
@@ -18,9 +18,21 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  const categories = ['ALL', 'HLD', 'DSA', 'AI', 'Java', 'Cloud', 'Hardware', 'Career', 'Cybersecurity'];
+  const categories = ['ALL', 'HLD', 'DSA', 'AI', 'Java', 'Cloud', 'Hardware', 'Career', 'Cybersecurity', 'Other'];
 
   const filtered = catalog.filter((item) => {
     const matchesSearch =
@@ -34,7 +46,12 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-fadeIn">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-fadeIn"
+    >
       <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">

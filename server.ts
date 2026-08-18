@@ -11,16 +11,24 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(express.json());
 
   // Health check
   app.get('/api/health', (req, res) => {
+    const rawKey = process.env.GEMINI_API_KEY;
+    const hasValidKey = Boolean(
+      rawKey &&
+      rawKey !== 'MY_GEMINI_API_KEY' &&
+      rawKey !== 'your_api_key_here' &&
+      rawKey.trim().length > 10
+    );
+
     res.json({
       status: 'ok',
-      hasApiKey: Boolean(process.env.GEMINI_API_KEY),
-      model: 'gemini-3.7-flash',
+      hasApiKey: hasValidKey,
+      model: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
       catalogSize: CATALOG.length,
       sessionCount: SESSIONS.length,
     });

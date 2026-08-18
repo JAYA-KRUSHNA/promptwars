@@ -1,5 +1,7 @@
 # PromptWars — AI Interest Inference & Tech Reel Recommender
 
+> **Live Demo**: [https://ai.studio/apps/d6f37cb3-0968-4481-b0af-3b821871c960](https://ai.studio/apps/d6f37cb3-0968-4481-b0af-3b821871c960)
+
 > AI agent that analyzes student short-form video (Reel) watch sessions, infers true underlying interests beyond surface keywords, and recommends high-quality educational tech Reels — with full staged reasoning transparency.
 
 ## What It Does

@@ -25,7 +25,9 @@ import {
 
 export default function App() {
   const [activeSessionId, setActiveSessionId] = useState<string>('session_1');
-  const [selectedReelIds, setSelectedReelIds] = useState<string[]>([]);
+  const [selectedReelIds, setSelectedReelIds] = useState<string[]>(() =>
+    SESSIONS[0].reels.map((r) => r.id)
+  );
   const [activeView, setActiveView] = useState<'reels' | 'analysis' | 'recommendation'>('reels');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [analysisSource, setAnalysisSource] = useState<AnalysisSource | null>(null);
@@ -34,9 +36,36 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCatalogOpen, setIsCatalogOpen] = useState<boolean>(false);
   const [showReasoningModal, setShowReasoningModal] = useState<boolean>(false);
+  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
+  const [isKeyBannerDismissed, setIsKeyBannerDismissed] = useState<boolean>(false);
 
   const currentSession: Session =
     SESSIONS.find((s) => s.id === activeSessionId) || SESSIONS[0];
+
+  // Check API key configuration on mount
+  useEffect(() => {
+    fetch('/api/health')
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data.hasApiKey === 'boolean') {
+          setHasApiKey(data.hasApiKey);
+        }
+      })
+      .catch((err) => console.warn('Health check failed:', err));
+  }, []);
+
+  // Escape key handler for reasoning modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowReasoningModal(false);
+      }
+    };
+    if (showReasoningModal) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showReasoningModal]);
 
   // Initialize selected reels whenever the session changes
   useEffect(() => {
@@ -66,7 +95,7 @@ export default function App() {
   };
 
   // Perform API analysis
-  const runAnalysis = async () => {
+  const runAnalysis = async (targetView: 'analysis' | 'recommendation' = 'analysis') => {
     if (selectedReelIds.length === 0) return;
 
     setIsAnalyzing(true);
@@ -94,7 +123,7 @@ export default function App() {
         setAnalysisResult(data.analysis);
         setAnalysisSource(data.source || 'fallback');
         setAnalysisLatency(data.latencyMs || null);
-        setActiveView('analysis');
+        setActiveView(targetView);
       } else {
         throw new Error(data.error || 'Failed to analyze watch session.');
       }
@@ -112,7 +141,7 @@ export default function App() {
       {/* Header */}
       <Header
         onOpenCatalog={() => setIsCatalogOpen(true)}
-        onRegenerate={runAnalysis}
+        onRegenerate={() => runAnalysis(activeView === 'recommendation' ? 'recommendation' : 'analysis')}
         isAnalyzing={isAnalyzing}
         activeView={activeView}
         setActiveView={setActiveView}
@@ -123,6 +152,27 @@ export default function App() {
 
       {/* Main Container */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 space-y-6">
+        {/* Dismissible banner when running without Gemini API key */}
+        {hasApiKey === false && !isKeyBannerDismissed && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs text-amber-900 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[11px] font-bold text-amber-900">
+                ℹ
+              </span>
+              <span>
+                <strong>No active Gemini API key configured</strong> — using the resilient fallback reasoning engine. Add your <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber-950">GEMINI_API_KEY</code> to see live model inference.
+              </span>
+            </div>
+            <button
+              onClick={() => setIsKeyBannerDismissed(true)}
+              className="rounded-lg px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200/80 hover:text-amber-950 transition-colors cursor-pointer shrink-0"
+              title="Dismiss banner"
+            >
+              ✕ Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Session Selector Strip */}
         <SessionSelector
           sessions={SESSIONS}
@@ -150,7 +200,7 @@ export default function App() {
 
             <button
               onClick={() => {
-                if (!analysisResult) runAnalysis();
+                if (!analysisResult) runAnalysis('analysis');
                 else setActiveView('analysis');
               }}
               className={`rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
@@ -164,7 +214,7 @@ export default function App() {
 
             <button
               onClick={() => {
-                if (!analysisResult) runAnalysis();
+                if (!analysisResult) runAnalysis('recommendation');
                 else setActiveView('recommendation');
               }}
               className={`rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
@@ -282,6 +332,25 @@ export default function App() {
               </div>
             )}
 
+            {activeView === 'analysis' && !analysisResult && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xs">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <h3 className="mt-3 text-base font-bold text-slate-900">No Inference Generated Yet</h3>
+                <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
+                  Run the interest inference agent on the active watch session to extract latent signals.
+                </p>
+                <button
+                  onClick={() => runAnalysis('analysis')}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Run Interest Inference</span>
+                </button>
+              </div>
+            )}
+
             {/* VIEW 3: RECOMMENDATION CARD */}
             {activeView === 'recommendation' && analysisResult && (
               <div className="space-y-6">
@@ -299,13 +368,37 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {activeView === 'recommendation' && !analysisResult && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xs">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <h3 className="mt-3 text-base font-bold text-slate-900">Recommendation Pending Inference</h3>
+                <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
+                  Analyze the student watch feed to generate a grounded, anti-hype verified tech reel pick.
+                </p>
+                <button
+                  onClick={() => runAnalysis('recommendation')}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Generate Tech Recommendation</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
 
       {/* Reasoning Graph Modal (WOW Feature) */}
       {showReasoningModal && analysisResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowReasoningModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-fadeIn overflow-y-auto"
+        >
           <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl overflow-hidden my-8">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">
               <div className="flex items-center gap-2">
@@ -357,7 +450,13 @@ export default function App() {
             <span>• Interest Inference & Tech Reel Recommender</span>
           </div>
           <div className="flex items-center gap-3 text-slate-400">
-            <span>Powered by Gemini 3.7 Flash</span>
+            {analysisSource === 'gemini' ? (
+              <span className="font-semibold text-emerald-600">⚡ Powered by Gemini 3.7 Flash</span>
+            ) : analysisSource === 'fallback' ? (
+              <span className="font-semibold text-amber-600">🔧 Fallback Reasoning Engine Active</span>
+            ) : (
+              <span className="text-slate-400">Analyze a session to begin</span>
+            )}
             <span>•</span>
             <span>Grounded Curated Catalog</span>
             <span>•</span>

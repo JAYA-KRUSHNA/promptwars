@@ -58,7 +58,6 @@ export function buildUserPrompt(sessionReels: Reel[], catalog: CatalogReel[]): s
         category: c.category,
         difficulty: c.difficulty,
         description: c.description,
-        is_hype_distractor: c.is_hype_distractor,
         tags: c.tags,
       })),
       output_requirements: {

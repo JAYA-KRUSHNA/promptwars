@@ -122,7 +122,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({
                 ? 'bg-emerald-500'
                 : 'bg-indigo-500'
             }`}
-            style={{ width: `${reel.engagement.watch_percent}%` }}
+            style={{ width: `${Math.min(100, Math.max(0, reel.engagement.watch_percent))}%` }}
           />
         </div>
 
