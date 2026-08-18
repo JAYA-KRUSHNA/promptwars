@@ -123,8 +123,11 @@ export default function App() {
   };
 
   // Perform API analysis using your server Gemini API key
-  const runAnalysis = async (targetView: 'analysis' | 'recommendation' = 'analysis') => {
+  const runAnalysis = async (targetView?: 'analysis' | 'recommendation' | unknown) => {
     if (selectedReelIds.length === 0) return;
+
+    const destinationView: 'analysis' | 'recommendation' =
+      targetView === 'recommendation' ? 'recommendation' : 'analysis';
 
     setIsAnalyzing(true);
     setErrorMessage(null);
@@ -152,7 +155,7 @@ export default function App() {
         setAnalysisResult(data.analysis);
         setAnalysisSource(data.source || 'fallback');
         setAnalysisLatency(data.latencyMs || null);
-        setActiveView(targetView);
+        setActiveView(destinationView);
       } else {
         throw new Error(data.error || 'Failed to analyze watch session.');
       }
@@ -163,7 +166,7 @@ export default function App() {
       setAnalysisResult(localResult);
       setAnalysisSource('fallback');
       setAnalysisLatency(80);
-      setActiveView(targetView);
+      setActiveView(destinationView);
     } finally {
       setIsAnalyzing(false);
     }
@@ -275,7 +278,7 @@ export default function App() {
                   onToggleSelect={handleToggleSelectReel}
                   onSelectAll={handleSelectAll}
                   onDeselectAll={handleDeselectAll}
-                  onAnalyze={runAnalysis}
+                  onAnalyze={() => runAnalysis('analysis')}
                   onUpdateEngagement={handleUpdateEngagement}
                   isAnalyzing={isAnalyzing}
                 />
