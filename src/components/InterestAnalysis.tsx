@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnalysisResult, AnalysisSource, Reel } from '../lib/types';
-import { Compass, CheckCircle2, ShieldAlert, Sparkles, Zap, HelpCircle } from 'lucide-react';
+import { Compass, CheckCircle2, ShieldAlert, Sparkles, Zap, HelpCircle, Network, ArrowRight } from 'lucide-react';
 import { OfficialOutputCard } from './OfficialOutputCard';
 
 interface InterestAnalysisProps {
@@ -18,50 +18,63 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
   latencyMs,
   activeReels = [],
 }) => {
-  const confidenceColor: Record<string, string> = {
-    High: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    Medium: 'bg-amber-50 text-amber-700 border-amber-200',
-    Low: 'bg-rose-50 text-rose-700 border-rose-200',
+  const confidenceColor: Record<string, { badge: string; text: string }> = {
+    High: {
+      badge: 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-glow-emerald/10',
+      text: 'text-emerald-700',
+    },
+    Medium: {
+      badge: 'bg-amber-50 text-amber-800 border-amber-300 shadow-glow-amber/10',
+      text: 'text-amber-700',
+    },
+    Low: {
+      badge: 'bg-rose-50 text-rose-800 border-rose-300',
+      text: 'text-rose-700',
+    },
   };
 
   return (
     <div className="space-y-6">
       {/* Primary Inferred Interest Hero */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+      <div className="relative overflow-hidden rounded-3xl border border-indigo-200/80 bg-gradient-to-br from-white via-indigo-50/20 to-purple-50/20 p-6 sm:p-8 shadow-sm">
+        <div className="absolute top-0 right-0 -mt-12 -mr-12 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+        
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-100 text-indigo-600">
+              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
                 <Compass className="h-4 w-4" />
               </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+              <span className="text-xs font-black uppercase tracking-wider text-indigo-700">
                 Inferred Latent Intent
               </span>
             </div>
-            <h2 className="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
               {analysis.interest_detected}
             </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <span
-                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${confidenceColor[analysis.confidence] || 'bg-slate-100 text-slate-700'
-                  }`}
+                className={`rounded-full border px-3 py-0.5 text-xs font-bold ${
+                  confidenceColor[analysis.confidence]?.badge || 'bg-slate-100 text-slate-700'
+                }`}
               >
                 Confidence: {analysis.confidence}
               </span>
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+              <span className="rounded-full bg-slate-100/90 border border-slate-200 px-3 py-0.5 text-xs font-bold text-slate-700">
                 Domain: {analysis.category}
               </span>
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+              <span className="rounded-full bg-slate-100/90 border border-slate-200 px-3 py-0.5 text-xs font-bold text-slate-700">
                 Level: {analysis.difficulty}
               </span>
               {source && (
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${source === 'gemini'
+                  className={`rounded-full px-3 py-0.5 text-xs font-extrabold uppercase tracking-wider border shadow-2xs ${
+                    source === 'gemini'
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : 'bg-amber-50 text-amber-800 border-amber-200'
-                    }`}
+                  }`}
                 >
-                  {source === 'gemini' ? '⚡ Gemini Live' : '🔧 Fallback'}
+                  {source === 'gemini' ? '⚡ Gemini 3.6 Flash' : '🔧 Fallback Engine'}
                   {latencyMs != null && ` · ${(latencyMs / 1000).toFixed(1)}s`}
                 </span>
               )}
@@ -70,33 +83,33 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
 
           <button
             onClick={onOpenReveal}
-            className="flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-200/80 px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors shadow-2xs cursor-pointer self-start"
+            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all cursor-pointer self-start"
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Inspect Live Reasoning Graph</span>
+            <Sparkles className="h-3.5 w-3.5 text-yellow-300" />
+            <span>Reasoning Pipeline</span>
           </button>
         </div>
 
         {/* Inference Reasoning & Psychological Synthesis */}
-        <div className="mt-5 space-y-3">
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Holistic Session Synthesis (WHY):
+        <div className="mt-6 space-y-3.5">
+          <div className="rounded-2xl bg-white/90 border border-slate-200/90 p-4 sm:p-5 shadow-2xs">
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-indigo-600" /> Holistic Session Synthesis (WHY):
             </h4>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
               {analysis.why}
             </p>
           </div>
 
           {/* Contrast Card: Surface Trap vs True Inferred Intent */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-            <div className="flex items-start gap-2">
-              <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+          <div className="rounded-2xl border border-amber-200/90 bg-amber-50/70 p-4 sm:p-5 shadow-2xs">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                  Keyword Trap Defense (Surface vs Latent):
+                <h4 className="text-xs font-black text-amber-900 uppercase tracking-wide">
+                  Keyword Trap Defense (Surface vs Latent Intent):
                 </h4>
-                <p className="mt-1 text-xs text-amber-950/80 leading-relaxed">
+                <p className="mt-1.5 text-xs text-amber-950 leading-relaxed font-medium">
                   {analysis.surface_vs_underlying}
                 </p>
               </div>
@@ -104,10 +117,10 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
           </div>
 
           {/* Confidence Reasoning */}
-          <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600 flex items-start gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-indigo-600 mt-0.5" />
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 text-xs text-slate-700 flex items-start gap-3 shadow-2xs">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
             <div>
-              <span className="font-semibold text-slate-800">Confidence Calibration Factor: </span>
+              <span className="font-bold text-slate-900">Confidence Calibration Factor: </span>
               {analysis.confidence_reasoning}
             </div>
           </div>
@@ -115,44 +128,50 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
       </div>
 
       {/* Signals Breakdown Table */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-        <h3 className="text-base font-bold text-slate-900 mb-1">
-          Implied Signal Breakdown by Reel (CURRENT REEL Analysis)
-        </h3>
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-base font-bold text-slate-900">
+            Implied Signal Breakdown by Reel (CURRENT REEL Analysis)
+          </h3>
+          <span className="text-xs text-slate-500 font-mono">
+            {analysis.reel_signals.length} Signals Decoded
+          </span>
+        </div>
         <p className="text-xs text-slate-500 mb-4">
-          How each watch event was weighted and transformed from literal keywords into cognitive intent.
+          How each watch event was weighted and transformed from literal keywords into cognitive engineering intent.
         </p>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-500 bg-slate-50">
-                <th className="py-2.5 px-3 font-semibold">CURRENT REEL</th>
-                <th className="py-2.5 px-3 font-semibold">Surface Keyword</th>
-                <th className="py-2.5 px-3 font-semibold">Inferred Signal</th>
-                <th className="py-2.5 px-3 font-semibold">Signal Weight</th>
+              <tr className="border-b border-slate-200 text-slate-600 bg-slate-50/80">
+                <th className="py-3 px-3.5 font-bold uppercase text-[10px] tracking-wider">CURRENT REEL</th>
+                <th className="py-3 px-3.5 font-bold uppercase text-[10px] tracking-wider">Surface Keyword</th>
+                <th className="py-3 px-3.5 font-bold uppercase text-[10px] tracking-wider">Inferred Signal</th>
+                <th className="py-3 px-3.5 font-bold uppercase text-[10px] tracking-wider">Signal Weight</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {analysis.reel_signals.map((sig, i) => (
-                <tr key={i} className="hover:bg-slate-50/80">
-                  <td className="py-2.5 px-3 font-medium text-slate-900 max-w-[200px] truncate">
-                    <span className="text-slate-400 font-mono mr-1">#{i + 1}</span> {sig.reel_title}
+                <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-3.5 font-semibold text-slate-900 max-w-[220px] truncate">
+                    <span className="text-slate-400 font-mono mr-1.5 text-[11px]">#{i + 1}</span> {sig.reel_title}
                   </td>
-                  <td className="py-2.5 px-3 text-slate-500 line-through">
+                  <td className="py-3 px-3.5 text-slate-400 line-through">
                     {sig.surface_topic}
                   </td>
-                  <td className="py-2.5 px-3 font-semibold text-indigo-700">
+                  <td className="py-3 px-3.5 font-bold text-indigo-700">
                     {sig.implied_signal}
                   </td>
-                  <td className="py-2.5 px-3">
+                  <td className="py-3 px-3.5">
                     <span
-                      className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${sig.signal_strength === 'positive'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      className={`inline-flex rounded-md px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
+                        sig.signal_strength === 'positive'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs'
                           : sig.signal_strength === 'negative'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
+                          ? 'bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
                     >
                       {sig.signal_strength}
                     </span>
