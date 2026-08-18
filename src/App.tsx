@@ -101,8 +101,6 @@ export default function App() {
     setIsAnalyzing(true);
     setErrorMessage(null);
 
-    const activeReels = currentSession.reels.filter((r) => selectedReelIds.includes(r.id));
-
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -110,7 +108,6 @@ export default function App() {
         body: JSON.stringify({
           sessionId: activeSessionId,
           selectedReelIds: selectedReelIds,
-          customReels: activeReels,
         }),
       });
 

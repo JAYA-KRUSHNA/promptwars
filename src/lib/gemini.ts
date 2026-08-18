@@ -115,12 +115,10 @@ export async function analyzeSessionWithGemini(
     try {
       const userPrompt = buildUserPrompt(sessionReels, catalog);
       const candidateModels = [
-        process.env.GEMINI_MODEL,
-        'gemini-3.6-flash',
+        process.env.GEMINI_MODEL || 'gemini-3.6-flash',
         'gemini-3.5-flash',
         'gemini-3.7-flash',
-        'gemini-2.5-pro',
-      ].filter((v): v is string => Boolean(v)).filter((v, i, a) => a.indexOf(v) === i);
+      ].filter((v, i, a) => a.indexOf(v) === i);
 
       let responseText: string | null = null;
       let usedModel = candidateModels[0];
@@ -283,351 +281,226 @@ export function generateDeterministicAnalysis(
   reels: Reel[],
   catalog: CatalogReel[] = CATALOG
 ): AnalysisResult {
-  const selectedIds = new Set(reels.map((r) => r.id));
-
-  // Robust session detection (works even on partial subsets of reels)
-  const isSession1 =
-    reels.some((r) => r.id.startsWith('reel_0')) ||
-    reels.some((r) =>
-      ['swe', 'techcareer', 'techinterview', 'developergear', 'git', 'javameme'].some((tag) =>
-        r.hashtags.includes(tag)
-      )
-    );
-
-  const isSession2 =
-    reels.length > 0 &&
-    (reels.some((r) => r.id.startsWith('reel_2')) ||
-      reels.every((r) => r.category === 'Java' || r.hashtags.includes('jvm')));
-
-  const isSession3 =
-    reels.some((r) => r.id.startsWith('reel_3')) ||
-    reels.some((r) =>
-      r.hashtags.includes('backprop') ||
-      r.hashtags.includes('attentionmechanism') ||
-      r.hashtags.includes('deeplearningmath')
-    );
-
-  const isSession4 =
-    reels.some((r) => r.id.startsWith('reel_4')) ||
-    reels.some((r) =>
-      r.hashtags.includes('chipdesign') ||
-      r.hashtags.includes('computerarchitecture') ||
-      r.hashtags.includes('semiconductors')
-    );
-
-  if (isSession1 && reels.length > 0) {
-    const allSession1Signals = [
-      {
-        reel_id: 'reel_01',
-        reel_title: 'POV: Your Java code works on the first try',
-        surface_topic: 'Java Syntax / Compile Error',
-        implied_signal: 'Relatable programmer identity & collegiate developer humor',
-        signal_strength: 'positive' as const,
-        weight_explanation: '100% watch + 2 rewatches + Liked + Shared. Humor indicates developer identity rather than Java language study.',
-      },
-      {
-        reel_id: 'reel_02',
-        reel_title: 'Day in the Life of a Software Engineer at Google',
-        surface_topic: 'Google Microkitchen & Lifestyle',
-        implied_signal: 'Professional software engineering career aspiration and team practices',
-        signal_strength: 'positive' as const,
-        weight_explanation: '92% watch + Liked. Clear ambition toward professional Big Tech engineering environments.',
-      },
-      {
-        reel_id: 'reel_03',
-        reel_title: 'When the interviewer asks "Tell me about yourself"',
-        surface_topic: 'Job Interview Skit',
-        implied_signal: 'Active preparation for technical & behavioral hiring pipelines',
-        signal_strength: 'positive' as const,
-        weight_explanation: '85% watch. Demonstrates career milestone urgency.',
-      },
-      {
-        reel_id: 'reel_04',
-        reel_title: 'MacBook Pro vs ThinkPad for Coding in 2025',
-        surface_topic: 'Laptop Buying Guide',
-        implied_signal: 'Developer tooling ergonomics and local Docker container environments',
-        signal_strength: 'positive' as const,
-        weight_explanation: '78% watch. Focus on development workflow and Unix tooling.',
-      },
-      {
-        reel_id: 'reel_05',
-        reel_title: '10 AI Tools That Will 10x Your Career Overnight',
-        surface_topic: 'AI Productivity Extensions',
-        implied_signal: 'Strong rejection of low-substance clickbait and get-rich-quick hacks',
-        signal_strength: 'negative' as const,
-        weight_explanation: '15% watch + Skipped early. Active negative signal penalizing superficial AI tool recommendations.',
-      },
-      {
-        reel_id: 'reel_06',
-        reel_title: 'Git Rebase vs Merge — Which Should You Use?',
-        surface_topic: 'Git CLI Command Syntax',
-        implied_signal: 'Team collaboration hygiene and production-grade version control standards',
-        signal_strength: 'positive' as const,
-        weight_explanation: '88% watch + 1 rewatch + Liked. Proves genuine interest in professional software delivery practices.',
-      },
-    ];
-
-    // Filter signals dynamically to the user's active reel selection
-    const activeSignals = allSession1Signals.filter((s) => selectedIds.has(s.reel_id));
-    const finalSignals =
-      activeSignals.length > 0
-        ? activeSignals
-        : reels.map((r) => ({
-          reel_id: r.id,
-          reel_title: r.title,
-          surface_topic: r.category,
-          implied_signal: 'Software Engineering Career & Practices',
-          signal_strength: 'positive' as const,
-          weight_explanation: `${r.engagement.watch_percent}% completion.`,
-        }));
-
+  if (!reels || reels.length === 0) {
+    const defaultItem = catalog.find((c) => c.id === 'cat_01') || catalog[0];
     return {
-      interest_detected: 'Software Engineering Career & Modern Systems Architecture',
-      underlying_cluster_summary:
-        'The student displays an aspirational software engineering profile. While individual watch items touch Java humor, laptop hardware specs, interview roleplay, and Git branch topology, their combined convergence demonstrates an active transition into professional engineering culture rather than syntax-level Java drills.',
-      why: 'The student engaged with 100% completion on relatable coding humor, deeply watched FAANG engineering day-in-the-life vlogs (92%), studied behavioral interview formats (85%), and analyzed team Git workflows (88%). Crucially, the student skipped clickbait "10x your career" AI fluff within 15% watch time, demonstrating high discernment against superficial hype.',
-      surface_vs_underlying:
-        'A naive keyword matcher flags "Java" (100% watch) and "Hardware" (78% watch), recommending basic Java tutorials or laptop affiliate links. The AI agent recognizes that the Java video was a comedic cultural meme (#dormdev) and the laptop video was developer ergonomics. The true latent desire is navigating the transition from student coder to senior software engineer.',
-      reel_signals: finalSignals,
+      interest_detected: 'Exploratory Lifestyle & Casual Computing',
+      underlying_cluster_summary: 'No active watch sessions selected.',
+      why: 'No engagement data provided.',
+      surface_vs_underlying: 'No signal present to differentiate.',
+      reel_signals: [],
       candidate_evaluations: [
-        {
-          catalog_id: 'cat_14',
-          title: 'What Senior Engineers Do Differently',
-          evaluated_status: 'selected',
-          rationale: 'Perfect alignment: bridges their interest in engineering culture, design docs, and career velocity into actionable senior mental models.',
-        },
-        {
-          catalog_id: 'cat_07',
-          title: 'Java Garbage Collection Deep Dive',
-          evaluated_status: 'rejected_mismatch',
-          rationale: 'Rejected: Over-indexed on the Java meme. The student watched a comedy skit, not an advanced JVM GC benchmarking series.',
-        },
-        {
-          catalog_id: 'cat_16',
-          title: '10 AI Tools That Will 10x Your Career Overnight',
-          evaluated_status: 'rejected_hype',
-          rationale: 'Rejected: Anti-hype filter triggered. Student explicitly skipped Reel #5 at 15% watch time.',
-        },
-        {
-          catalog_id: 'cat_13',
-          title: 'How to Actually Prepare for FAANG Interviews',
-          evaluated_status: 'selected',
-          rationale: 'Strong alternative: directly addresses behavioral skit signals (Reel #3) and Google day-in-the-life (Reel #2).',
-        },
-        {
-          catalog_id: 'cat_03',
-          title: 'Understanding REST vs GraphQL: Engineering Tradeoffs',
-          evaluated_status: 'selected',
-          rationale: 'High-value technical bridge: matches the design doc interests shown in the Big Tech vlog.',
-        },
+        { catalog_id: defaultItem.id, title: defaultItem.title, evaluated_status: 'selected', rationale: 'Baseline recommendation.' },
       ],
-      recommended_reel_id: 'cat_14',
-      recommended_tech_reel: 'What Senior Engineers Do Differently',
-      category: 'Career',
-      why_this_recommendation:
-        'This recommendation captures the exact inflection point shown in the student\'s behavior: transitioning from writing isolated code in dorm rooms to mastering engineering tradeoffs, design doc communication, and pragmatic seniority. It satisfies their aspirational curiosity with high-density architectural wisdom.',
-      difficulty: 'Intermediate',
-      confidence: 'High',
-      confidence_reasoning:
-        'High signal convergence (5 positive reels across engineering career, tooling, and team Git workflows, with 1 clear negative filter on hype).',
-      alternative_recommendation: {
-        catalog_id: 'cat_13',
-        title: 'How to Actually Prepare for FAANG Interviews',
-        category: 'Career',
-        reason: 'Directly supports their behavioral interview preparation and Big Tech career ambitions.',
-      },
+      recommended_reel_id: defaultItem.id,
+      recommended_tech_reel: defaultItem.title,
+      category: defaultItem.category,
+      why_this_recommendation: defaultItem.description,
+      difficulty: defaultItem.difficulty,
+      confidence: 'Low',
+      confidence_reasoning: 'Empty watch session.',
     };
   }
 
-  if (isSession2) {
-    return {
-      interest_detected: 'Java & JVM Systems Engineering',
-      underlying_cluster_summary:
-        'Consistently deep focus on low-level Java Virtual Machine mechanics, memory allocation topologies (Eden/Survivor), bytecode type erasure, and multithreading synchronization primitives.',
-      why: 'All watched reels reflect technical depth with zero superficial fluff. 100% completion with rewatches on Eden space and ReentrantLocks indicates advanced backend language mastery.',
-      surface_vs_underlying:
-        'Surface matches Java, and unlike Session 1, underlying deep technical evidence confirms genuine JVM language specialization rather than casual humor.',
-      reel_signals: reels.map((r) => ({
-        reel_id: r.id,
-        reel_title: r.title,
-        surface_topic: r.category,
-        implied_signal: 'Rigorous JVM systems architecture and concurrency mechanics',
-        signal_strength: 'positive' as const,
-        weight_explanation: `${r.engagement.watch_percent}% watch time with high completion.`,
-      })),
-      candidate_evaluations: [
-        {
-          catalog_id: 'cat_07',
-          title: 'Java Garbage Collection Deep Dive',
-          evaluated_status: 'selected',
-          rationale: 'Ideal progression: directly builds on their Eden/Survivor memory allocation watch history.',
-        },
-        {
-          catalog_id: 'cat_08',
-          title: 'Spring Boot Microservices: Real-World Architecture',
-          evaluated_status: 'selected',
-          rationale: 'Solid alternative expanding from Spring @Autowired into distributed microservice patterns.',
-        },
-      ],
-      recommended_reel_id: 'cat_07',
-      recommended_tech_reel: 'Java Garbage Collection Deep Dive',
-      category: 'Java',
-      why_this_recommendation:
-        'The student has mastered Young Generation Eden spaces and monitor locks. A deep dive into G1GC vs ZGC compaction phases provides the exact next frontier in JVM runtime performance tuning.',
-      difficulty: 'Advanced',
-      confidence: 'High',
-      confidence_reasoning: 'Unbroken convergence across 4 rigorous Java internals reels with high rewatch rates.',
-      alternative_recommendation: {
-        catalog_id: 'cat_08',
-        title: 'Spring Boot Microservices: Real-World Architecture',
-        category: 'Java',
-        reason: 'Expands foundational JVM memory tuning into distributed Spring Boot enterprise microservices architecture.',
-      },
-    };
-  }
+  // ── 1. Extract Signals ──────────────────────────────────────────────
+  const reelSignals = reels.map((r) => {
+    const isSkipped = r.engagement.skipped_early || r.engagement.watch_percent < 30;
+    const isPositive = !isSkipped && (r.engagement.watch_percent >= 75 || r.engagement.liked || r.engagement.rewatch_count > 0);
+    const strength: 'positive' | 'negative' | 'neutral' = isSkipped ? 'negative' : isPositive ? 'positive' : 'neutral';
 
-  if (isSession3) {
-    return {
-      interest_detected: 'Deep Learning & Transformer Foundations',
-      underlying_cluster_summary:
-        'Rigorous interest in mathematical foundations of neural networks (backprop calculus, temperature scaling, vectorized SIMD dot products) combined with active rejection of clickbait AI marketing.',
-      why: '100% watch on 3D chain rule backpropagation and attention temperature math, while instantly skipping the sensationalist AI fearmongering video at 8%.',
-      surface_vs_underlying:
-        'A naive system would recommend trending AI tool listicles; the agent detects mathematical machine learning dedication and filters out all hype distractors.',
-      reel_signals: reels.map((r) => ({
-        reel_id: r.id,
-        reel_title: r.title,
-        surface_topic: r.category,
-        implied_signal: r.engagement.skipped_early
-          ? 'Rejection of apocalyptic clickbait'
-          : 'Mathematical optimization & linear algebra for ML',
-        signal_strength: (r.engagement.skipped_early ? 'negative' : 'positive') as 'positive' | 'negative',
-        weight_explanation: r.engagement.skipped_early
-          ? 'Skipped at 8% watch time.'
-          : `${r.engagement.watch_percent}% watch time with full attention.`,
-      })),
-      candidate_evaluations: [
-        {
-          catalog_id: 'cat_05',
-          title: 'How Transformers Work: Attention Is All You Need Explained',
-          evaluated_status: 'selected',
-          rationale: 'Direct theoretical continuation of their attention temperature and matrix dot product studies.',
-        },
-        {
-          catalog_id: 'cat_16',
-          title: '10 AI Tools That Will 10x Your Career Overnight',
-          evaluated_status: 'rejected_hype',
-          rationale: 'Disqualified by anti-hype filter.',
-        },
-      ],
-      recommended_reel_id: 'cat_05',
-      recommended_tech_reel: 'How Transformers Work: Attention Is All You Need Explained',
-      category: 'AI',
-      why_this_recommendation:
-        'Explains Query-Key-Value matrix multiplications and multi-head attention with mathematical precision, matching the student\'s analytical foundation.',
-      difficulty: 'Intermediate',
-      confidence: 'High',
-      confidence_reasoning: 'Strong mathematical consistency with clear anti-hype discernment.',
-      alternative_recommendation: {
-        catalog_id: 'cat_06',
-        title: 'Writing Your First Neural Network in Python',
-        category: 'AI',
-        reason: 'Grounds theoretical backprop and attention calculus into hands-on NumPy implementation from scratch.',
-      },
+    const signalMap: Record<string, { surface: string; implied: string }> = {
+      reel_01:  { surface: 'Java Syntax / Compile Error', implied: 'Relatable programmer identity & collegiate developer humor' },
+      reel_02:  { surface: 'Google Microkitchen & Lifestyle', implied: 'Professional software engineering career aspiration' },
+      reel_03:  { surface: 'Job Interview Skit', implied: 'Active preparation for technical & behavioral hiring pipelines' },
+      reel_04:  { surface: 'Laptop Buying Guide', implied: 'Developer tooling ergonomics and Docker container environments' },
+      reel_05:  { surface: 'AI Productivity Extensions', implied: 'Strong rejection of low-substance clickbait' },
+      reel_06:  { surface: 'Git CLI Command Syntax', implied: 'Team collaboration hygiene and version control standards' },
+      reel_201: { surface: 'Java Eden Memory', implied: 'Low-level JVM heap layout and minor GC promotion thresholds' },
+      reel_202: { surface: 'Synchronized vs Locks', implied: 'Concurrency mechanics and AbstractQueuedSynchronizer' },
+      reel_203: { surface: 'Spring @Autowired', implied: 'Enterprise IoC container reflection and microservices architecture' },
+      reel_204: { surface: 'Java Generics Erasure', implied: 'Bytecode type erasure and synthetic bridge methods' },
+      reel_301: { surface: '3D Backprop Animation', implied: 'Mathematical multivariate calculus for neural training' },
+      reel_302: { surface: 'Attention Softmax Formula', implied: 'Theoretical self-attention matrix math and temperature scaling' },
+      reel_303: { surface: 'AI Will Replace Coders Skit', implied: 'Rejection of apocalyptic clickbait fearmongering' },
+      reel_304: { surface: 'Python For-Loop Benchmark', implied: 'SIMD vectorization and contiguous memory layout in NumPy' },
+      reel_401: { surface: 'TSMC Lithography', implied: 'Physical semiconductor fabrication and EUV lithography' },
+      reel_402: { surface: 'Cache vs RAM Speed', implied: 'Memory hierarchy latency physics and cache-aligned data layout' },
+      reel_403: { surface: 'GPU Cores vs CPU Cores', implied: 'Throughput parallel SIMD vs low-latency out-of-order execution' },
     };
-  }
 
-  if (isSession4) {
-    return {
-      interest_detected: 'Computer Systems Architecture & Silicon Hardware',
-      underlying_cluster_summary:
-        'High curiosity regarding nanometer silicon lithography, memory latency hierarchies (L1 vs RAM), and massively parallel SIMD execution in GPU dies.',
-      why: 'Sustained >90% watch times on physical semiconductor mechanics and processor design tradeoffs.',
-      surface_vs_underlying:
-        'Surface matches Hardware, and implied signal points toward systems architecture and low-level performance bottlenecks.',
-      reel_signals: reels.map((r) => ({
-        reel_id: r.id,
-        reel_title: r.title,
-        surface_topic: 'Hardware & Silicon',
-        implied_signal: 'Low-level computing architecture and memory latency physics',
-        signal_strength: 'positive' as const,
-        weight_explanation: `${r.engagement.watch_percent}% completion.`,
-      })),
-      candidate_evaluations: [
-        {
-          catalog_id: 'cat_12',
-          title: 'CPU Cache Hierarchy: Why It Matters for Fast Code',
-          evaluated_status: 'selected',
-          rationale: 'Directly bridges cache latency (Reel #402) into cache-friendly software optimization techniques.',
-        },
-        {
-          catalog_id: 'cat_11',
-          title: 'How GPUs Actually Process Graphics & Tensor Math',
-          evaluated_status: 'selected',
-          rationale: 'Deepens the GPU SIMD parallel architecture concepts from Reel #403.',
-        },
-      ],
-      recommended_reel_id: 'cat_12',
-      recommended_tech_reel: 'CPU Cache Hierarchy: Why It Matters for Fast Code',
-      category: 'Hardware',
-      why_this_recommendation:
-        'Connects hardware latency realities (L1/L2/L3 cache misses) to writing cache-aligned, ultra-fast software in modern systems.',
-      difficulty: 'Intermediate',
-      confidence: 'High',
-      confidence_reasoning: 'Cohesive engagement across semiconductor lithography and memory latency benchmarks.',
-      alternative_recommendation: {
-        catalog_id: 'cat_11',
-        title: 'How GPUs Actually Process Graphics & Tensor Math',
-        category: 'Hardware',
-        reason: 'Deepens the GPU SIMD parallel processing and tensor core matrix math hardware concepts.',
-      },
-    };
-  }
+    const mapped = signalMap[r.id];
+    const surface = mapped ? mapped.surface : r.category;
+    const implied = mapped
+      ? mapped.implied
+      : isPositive
+      ? `Genuine interest in ${r.category} concepts`
+      : isSkipped
+      ? `Rejection of superficial ${r.category} format`
+      : `Casual peripheral ${r.category} browsing`;
 
-  // Session 5 / Generic
+    let weightText = `${r.engagement.watch_percent}% watch time`;
+    if (r.engagement.rewatch_count > 0) weightText += ` + ${r.engagement.rewatch_count} rewatch`;
+    if (r.engagement.liked) weightText += ` + Liked`;
+    if (r.engagement.shared) weightText += ` + Shared`;
+    if (isSkipped) weightText = `Skipped early (${r.engagement.watch_percent}%) — negative penalty`;
+
+    return { reel_id: r.id, reel_title: r.title, surface_topic: surface, implied_signal: implied, signal_strength: strength, weight_explanation: weightText };
+  });
+
+  // ── 2. Compute Affinity Scores ──────────────────────────────────────
+  const scores: Record<string, number> = {};
+  catalog.forEach((c) => { scores[c.id] = 0; });
+
+  // Mapping: each catalog item → what reel IDs / hashtags boost it, and by how much
+  const affinityRules: { match: (r: Reel) => boolean; boosts: Record<string, number> }[] = [
+    // Interview skit / prep → FAANG Interview (strong) + Senior Engineers (moderate)
+    { match: (r) => r.id === 'reel_03' || r.hashtags.some(t => ['techinterview', 'faangprep', 'behavioralprep'].includes(t)),
+      boosts: { cat_13: 4.0, cat_14: 1.5 } },
+    // Google vlog / engineering culture → Senior Engineers (strong) + FAANG Interview (moderate) + REST/GraphQL (light)
+    { match: (r) => r.id === 'reel_02' || r.hashtags.some(t => ['swe', 'google', 'techcareer'].includes(t)),
+      boosts: { cat_14: 3.5, cat_13: 1.8, cat_03: 1.5 } },
+    // Git rebase / team workflow → Senior Engineers + REST/GraphQL
+    { match: (r) => r.id === 'reel_06' || r.hashtags.some(t => ['git', 'engineeringbestpractices', 'versioncontrol'].includes(t)),
+      boosts: { cat_14: 3.0, cat_03: 2.0, cat_04: 1.0 } },
+    // Java meme → light developer culture, very low Java GC weight
+    { match: (r) => r.id === 'reel_01' || r.hashtags.some(t => ['javameme', 'codinghumor'].includes(t)),
+      boosts: { cat_14: 1.0, cat_07: 0.2 } },
+    // Hardware setup / ergonomics → light cache + career
+    { match: (r) => r.id === 'reel_04' || r.hashtags.some(t => ['developergear', 'macbook', 'setuptour'].includes(t)),
+      boosts: { cat_14: 0.8, cat_12: 0.6 } },
+    // JVM Internals (Eden/Locks/Generics)
+    { match: (r) => ['reel_201', 'reel_202', 'reel_204'].includes(r.id) || r.hashtags.some(t => ['jvm', 'locks', 'memoryallocation', 'generics'].includes(t)),
+      boosts: { cat_07: 4.0, cat_08: 2.0 } },
+    // Spring Boot
+    { match: (r) => r.id === 'reel_203' || r.hashtags.some(t => ['springboot', 'javaframework'].includes(t)),
+      boosts: { cat_08: 4.5, cat_07: 2.0 } },
+    // Backprop / Attention math → Transformers (strong) + Neural Net coding (moderate)
+    { match: (r) => ['reel_301', 'reel_302'].includes(r.id) || r.hashtags.some(t => ['backprop', 'attentionmechanism', 'transformers', 'deeplearningmath'].includes(t)),
+      boosts: { cat_05: 4.0, cat_06: 2.5 } },
+    // NumPy / Python ML → Neural Net coding (strong) + Transformers (moderate)
+    { match: (r) => r.id === 'reel_304' || r.hashtags.some(t => ['numpy', 'pythonperformance'].includes(t)),
+      boosts: { cat_06: 4.0, cat_05: 2.0 } },
+    // GPU / SIMD → GPU tensor (strong) + CPU cache (moderate)
+    { match: (r) => r.id === 'reel_403' || r.hashtags.some(t => ['gpu', 'simd'].includes(t)),
+      boosts: { cat_11: 4.5, cat_12: 2.5 } },
+    // TSMC / CPU cache latency → CPU cache (strong) + GPU tensor (moderate)
+    { match: (r) => ['reel_401', 'reel_402'].includes(r.id) || r.hashtags.some(t => ['cpu', 'semiconductors', 'memorylatency', 'chipdesign'].includes(t)),
+      boosts: { cat_12: 4.0, cat_11: 2.0 } },
+    // Lifestyle / web / entertainment → DNS (light) + Binary Search (light)
+    { match: (r) => r.hashtags.some(t => ['cooking', 'pets', 'css', 'webdesign', 'keyboards'].includes(t)),
+      boosts: { cat_01: 1.5, cat_02: 1.0 } },
+  ];
+
+  reels.forEach((r) => {
+    const isSkipped = r.engagement.skipped_early || r.engagement.watch_percent < 30;
+    const engagementWeight = isSkipped
+      ? -2.0
+      : (r.engagement.watch_percent / 100) * 1.5
+        + r.engagement.rewatch_count * 1.0
+        + (r.engagement.liked ? 0.8 : 0)
+        + (r.engagement.shared ? 1.0 : 0);
+
+    for (const rule of affinityRules) {
+      if (rule.match(r)) {
+        for (const [catId, multiplier] of Object.entries(rule.boosts)) {
+          scores[catId] = (scores[catId] || 0) + engagementWeight * multiplier;
+        }
+      }
+    }
+  });
+
+  // ── 3. Select Winner (excluding hype distractors) ───────────────────
+  const ranked = catalog
+    .filter((c) => !c.is_hype_distractor)
+    .map((c) => ({ ...c, score: scores[c.id] || 0 }))
+    .sort((a, b) => b.score - a.score);
+
+  const winner = ranked[0];
+  const runnerUp = ranked[1];
+  const hypeItem = catalog.find((c) => c.is_hype_distractor) || catalog[15];
+
+  // ── 4. Build Candidate Audit Log ────────────────────────────────────
+  const evaluations = [
+    { catalog_id: winner.id, title: winner.title, evaluated_status: 'selected' as const,
+      rationale: `Top convergence match (score ${winner.score.toFixed(1)}): directly satisfies the student's strongest engagement signals.` },
+    { catalog_id: runnerUp.id, title: runnerUp.title, evaluated_status: 'selected' as const,
+      rationale: `Strong alternative (score ${runnerUp.score.toFixed(1)}): technical bridge for continuous progression.` },
+    { catalog_id: hypeItem.id, title: hypeItem.title, evaluated_status: 'rejected_hype' as const,
+      rationale: 'Rejected: Disqualified by anti-hype filter to preserve educational depth.' },
+  ];
+
+  // ── 5. Generate Dynamic Intent Summary ──────────────────────────────
+  const categoryDescriptions: Record<string, { interestTemplate: string; summary: string; why: string; trap: string }> = {
+    Career: {
+      interestTemplate: winner.id === 'cat_13' ? 'FAANG Technical & Behavioral Interview Mastery' : 'Software Engineering Career Velocity & Senior Architecture',
+      summary: 'The active watch selection demonstrates a focused transition into professional Big Tech engineering culture, behavioral hiring pipelines, and production team standards.',
+      why: 'The student prioritized engineering vlogs, interview preparation, and collaboration tooling while rejecting hype content.',
+      trap: 'A naive keyword matcher flags "Java" or "Hardware". The agent infers the true latent ambition: mastering engineering career velocity.',
+    },
+    Java: {
+      interestTemplate: winner.id === 'cat_08' ? 'Spring Boot Enterprise Microservices Architecture' : 'Java & JVM Low-Level Systems Engineering',
+      summary: 'Consistently deep engagement with JVM memory layouts, multithreading locks, and enterprise Spring framework.',
+      why: 'The watched reels exhibit technical depth on memory allocation and thread synchronization with high completion rates.',
+      trap: 'Unlike casual Java meme watchers, deep technical watch completion confirms genuine JVM backend systems engineering.',
+    },
+    AI: {
+      interestTemplate: winner.id === 'cat_06' ? 'Hands-On Neural Network Implementation & NumPy Optimization' : 'Deep Learning & Transformer Attention Mathematics',
+      summary: 'Analytical focus on foundational matrix calculus, temperature scaling, and vectorized dot products for machine learning.',
+      why: 'High completion on mathematical backpropagation and attention mechanisms combined with rejection of AI clickbait.',
+      trap: 'A naive matcher recommends AI tool listicles; the agent detects mathematical ML dedication and recommends theory.',
+    },
+    Hardware: {
+      interestTemplate: winner.id === 'cat_11' ? 'GPU Massively Parallel Architecture & Tensor Acceleration' : 'Computer Systems Architecture & Memory Hierarchy Physics',
+      summary: 'High curiosity regarding semiconductor lithography, memory latency hierarchies, and SIMD parallel processor designs.',
+      why: 'Sustained high watch times on physical semiconductor mechanics and processor architecture tradeoffs.',
+      trap: 'Surface hardware curiosity connects directly to low-level cache-aligned performance software engineering.',
+    },
+    HLD: {
+      interestTemplate: 'System Design & Internet Infrastructure Foundations',
+      summary: 'Exploratory browsing across lifestyle and surface concepts without a concentrated technical specialization.',
+      why: 'Dispersed watch history across varied topics without a strong recurring technical anchor.',
+      trap: 'A naive model would overfit to isolated keywords; the agent honestly recognizes diffuse exploration.',
+    },
+    DSA: {
+      interestTemplate: 'Algorithmic Problem Solving & Interview Preparation',
+      summary: 'Interest in foundational computer science algorithms and data structure patterns.',
+      why: 'Watch patterns suggest preparation for coding interviews or computer science coursework.',
+      trap: 'Surface topic matching misses the underlying problem-solving focus.',
+    },
+  };
+
+  const desc = categoryDescriptions[winner.category] || categoryDescriptions['HLD'];
+  const positiveCount = reelSignals.filter((s) => s.signal_strength === 'positive').length;
+  const negativeCount = reelSignals.filter((s) => s.signal_strength === 'negative').length;
+  const confidence: 'High' | 'Medium' | 'Low' =
+    winner.score <= 0 ? 'Low' : positiveCount >= 3 ? 'High' : positiveCount >= 1 ? 'Medium' : 'Low';
+  const confidenceReasoning =
+    confidence === 'High'
+      ? `Strong signal convergence across ${positiveCount} positive reels${negativeCount > 0 ? ` with ${negativeCount} active negative filter` : ''}.`
+      : confidence === 'Medium'
+      ? `Moderate signal from ${positiveCount} reel${positiveCount !== 1 ? 's' : ''}. Additional watch data would strengthen inference.`
+      : `Sparse or exploratory signals across disparate categories require calibrated Low confidence.`;
+
   return {
-    interest_detected: 'Exploratory Lifestyle & Casual Computing',
-    underlying_cluster_summary:
-      'The session contains fragmented interactions across casual cooking, pet entertainment, keyboard acoustics, and surface web styling, without an established technical core.',
-    why: 'Dispersed watch history with low-to-moderate watch percentages and no recurring technical anchor.',
-    surface_vs_underlying:
-      'A naive model would overfit to CSS or Mechanical Keyboards. The agent correctly recognizes diffuse browsing and dampens confidence.',
-    reel_signals: reels.map((r) => ({
-      reel_id: r.id,
-      reel_title: r.title,
-      surface_topic: r.category,
-      implied_signal: 'Casual entertainment & peripheral lifestyle browsing',
-      signal_strength: 'neutral' as const,
-      weight_explanation: `Moderate watch ${r.engagement.watch_percent}%, no strong technical commitment.`,
-    })),
-    candidate_evaluations: [
-      {
-        catalog_id: 'cat_01',
-        title: 'How DNS Resolution Actually Works',
-        evaluated_status: 'selected',
-        rationale: 'Accessible, universal internet foundation that serves as an engaging entry point for broad technical curiosity.',
-      },
-      {
-        catalog_id: 'cat_02',
-        title: 'Binary Search: The Algorithm Behind Every Tech Interview',
-        evaluated_status: 'selected',
-        rationale: 'Foundational algorithmic intuition suitable for broad technical exploration.',
-      },
-    ],
-    recommended_reel_id: 'cat_01',
-    recommended_tech_reel: 'How DNS Resolution Actually Works',
-    category: 'HLD',
-    why_this_recommendation:
-      'Given the mixed, exploratory nature of the watch session, recommending a visual, intuitive breakdown of everyday internet infrastructure provides the highest educational entry value without assuming prior specialization.',
-    difficulty: 'Beginner',
-    confidence: 'Low',
-    confidence_reasoning:
-      'Sparse and non-convergent signals across disparate lifestyle/entertainment categories require honest Low confidence calibration.',
+    interest_detected: desc.interestTemplate,
+    underlying_cluster_summary: desc.summary,
+    why: desc.why,
+    surface_vs_underlying: desc.trap,
+    reel_signals: reelSignals,
+    candidate_evaluations: evaluations,
+    recommended_reel_id: winner.id,
+    recommended_tech_reel: winner.title,
+    category: winner.category,
+    why_this_recommendation: `This recommendation matches the inflection point in the student's active selection: ${winner.description}`,
+    difficulty: winner.difficulty,
+    confidence,
+    confidence_reasoning: confidenceReasoning,
     alternative_recommendation: {
-      catalog_id: 'cat_02',
-      title: 'Binary Search: The Algorithm Behind Every Tech Interview',
-      category: 'DSA',
-      reason: 'Provides a structured, fundamental entry point into computational problem solving for exploratory learners.',
+      catalog_id: runnerUp.id,
+      title: runnerUp.title,
+      category: runnerUp.category,
+      reason: `Expands on the active watch signals from a complementary angle: ${runnerUp.description}`,
     },
   };
 }
+
