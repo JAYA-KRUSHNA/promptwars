@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnalysisResult, Reel } from '../lib/types';
-import { Copy, Check, Terminal, FileText, CheckCircle2 } from 'lucide-react';
+import { Copy, Check, Terminal } from 'lucide-react';
 
 interface OfficialOutputCardProps {
   analysis: AnalysisResult;
@@ -39,12 +39,12 @@ CONFIDENCE: ${analysis.confidence}`;
   };
 
   return (
-    <div className="rounded-2xl border border-indigo-200 bg-slate-900 text-slate-100 p-5 shadow-md">
+    <div className="glass-card-dark rounded-2xl p-5 sm:p-6 text-slate-100 transition-all">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3.5 mb-4">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-500/20 text-indigo-400">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-500/20 text-indigo-400">
             <Terminal className="h-3.5 w-3.5" />
-          </span>
+          </div>
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300">
               Required Schema Output Spec
@@ -74,41 +74,41 @@ CONFIDENCE: ${analysis.confidence}`;
       </div>
 
       {/* Structured Output Grid */}
-      <div className="space-y-2.5 font-mono text-xs leading-relaxed">
-        <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80">
+      <div className="space-y-2 font-mono text-xs leading-relaxed">
+        <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
           <span className="text-indigo-400 font-bold">CURRENT REEL: </span>
           <span className="text-slate-300">{currentReelReference}</span>
         </div>
 
-        <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80">
+        <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
           <span className="text-emerald-400 font-bold">INTEREST DETECTED: </span>
           <span className="text-white font-semibold">{analysis.interest_detected}</span>
         </div>
 
-        <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80">
+        <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
           <span className="text-amber-400 font-bold">WHY: </span>
           <span className="text-slate-300">{analysis.why}</span>
         </div>
 
-        <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80">
+        <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
           <span className="text-indigo-300 font-bold">RECOMMENDED TECH REEL: </span>
           <span className="text-white font-bold">{analysis.recommended_tech_reel}</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
             <span className="text-cyan-400 font-bold">CATEGORY: </span>
             <span className="rounded bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 text-cyan-200 font-bold">
               {analysis.category}
             </span>
           </div>
 
-          <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80">
+          <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
             <span className="text-purple-400 font-bold">DIFFICULTY: </span>
             <span className="text-purple-200 font-semibold">{analysis.difficulty}</span>
           </div>
 
-          <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80">
+          <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
             <span className="text-emerald-400 font-bold">CONFIDENCE: </span>
             <span
               className={`rounded px-2 py-0.5 font-bold ${
@@ -124,7 +124,7 @@ CONFIDENCE: ${analysis.confidence}`;
           </div>
         </div>
 
-        <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80">
+        <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
           <span className="text-emerald-400 font-bold">WHY THIS RECOMMENDATION: </span>
           <span className="text-slate-300">{analysis.why_this_recommendation}</span>
         </div>
