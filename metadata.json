@@ -1,0 +1,6 @@
+{
+  "name": "PromptWars",
+  "description": "AI agent that analyzes student Reel watch sessions, infers true underlying interests (avoiding surface keyword traps & anti-hype distractors), and recommends high-quality tech Reels with staged reasoning transparency.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
