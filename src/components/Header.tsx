@@ -1,10 +1,9 @@
 import React from 'react';
-import { Sparkles, Compass, Database, Zap, Film, Settings } from 'lucide-react';
+import { Sparkles, Compass, Database, Zap, Film } from 'lucide-react';
 import { AnalysisSource } from '../lib/types';
 
 interface HeaderProps {
   onOpenCatalog: () => void;
-  onOpenSettings: () => void;
   onRegenerate: () => void;
   isAnalyzing: boolean;
   activeView: 'reels' | 'analysis' | 'recommendation';
@@ -12,12 +11,10 @@ interface HeaderProps {
   hasAnalysis: boolean;
   analysisSource?: AnalysisSource | null;
   analysisLatency?: number | null;
-  hasApiKey?: boolean | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenCatalog,
-  onOpenSettings,
   onRegenerate,
   isAnalyzing,
   activeView,
@@ -25,7 +22,6 @@ export const Header: React.FC<HeaderProps> = ({
   hasAnalysis,
   analysisSource,
   analysisLatency,
-  hasApiKey,
 }) => {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl transition-all">
@@ -122,14 +118,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="rounded-md bg-slate-100 px-1.5 py-0.2 text-[10px] font-bold text-slate-600">
               18
             </span>
-          </button>
-
-          <button
-            onClick={onOpenSettings}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/90 p-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer"
-            title="Gemini API Key & Model Settings"
-          >
-            <Settings className="h-4 w-4 text-slate-600" />
           </button>
 
           <button

@@ -12,7 +12,6 @@ import { ReasoningReveal } from './components/ReasoningReveal';
 import { CatalogModal } from './components/CatalogModal';
 import { LoadingState } from './components/LoadingState';
 import { ErrorState } from './components/ErrorState';
-import { SettingsModal } from './components/SettingsModal';
 import {
   Sparkles,
   ArrowRight,
@@ -24,7 +23,6 @@ import {
   Eye,
   SlidersHorizontal,
   Dices,
-  Key,
 } from 'lucide-react';
 
 export default function App() {
@@ -41,51 +39,9 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCatalogOpen, setIsCatalogOpen] = useState<boolean>(false);
   const [showReasoningModal, setShowReasoningModal] = useState<boolean>(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
-  const [isKeyBannerDismissed, setIsKeyBannerDismissed] = useState<boolean>(false);
-
-  const [userApiKey, setUserApiKey] = useState<string>(
-    () => localStorage.getItem('reels_gemini_api_key') || ''
-  );
-  const [selectedModel, setSelectedModel] = useState<string>(
-    () => localStorage.getItem('reels_gemini_model') || 'gemini-2.5-flash'
-  );
 
   const currentSession: Session =
     sessionsList.find((s) => s.id === activeSessionId) || sessionsList[0] || SESSIONS[0];
-
-  const handleSaveApiKey = (key: string) => {
-    setUserApiKey(key);
-    if (key) {
-      localStorage.setItem('reels_gemini_api_key', key);
-    } else {
-      localStorage.removeItem('reels_gemini_api_key');
-    }
-  };
-
-  const handleSaveModel = (model: string) => {
-    setSelectedModel(model);
-    localStorage.setItem('reels_gemini_model', model);
-  };
-
-  // Check API key configuration on mount
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => {
-        if (!res.ok) throw new Error('Health check error');
-        return res.json();
-      })
-      .then((data) => {
-        if (typeof data.hasApiKey === 'boolean') {
-          setHasApiKey(data.hasApiKey);
-        }
-      })
-      .catch((err) => {
-        console.warn('Health check fallback:', err);
-        setHasApiKey(false);
-      });
-  }, []);
 
   // Escape key handler for reasoning modal
   useEffect(() => {
@@ -166,7 +122,7 @@ export default function App() {
     setAnalysisResult(null);
   };
 
-  // Perform API analysis with seamless fallback
+  // Perform API analysis using your server Gemini API key
   const runAnalysis = async (targetView: 'analysis' | 'recommendation' = 'analysis') => {
     if (selectedReelIds.length === 0) return;
 
@@ -184,8 +140,6 @@ export default function App() {
           sessionId: activeSessionId,
           selectedReelIds: selectedReelIds,
           customReels: currentSession.reels,
-          apiKey: userApiKey || undefined,
-          model: selectedModel,
         }),
       });
 
@@ -215,8 +169,6 @@ export default function App() {
     }
   };
 
-  const isKeyAvailable = Boolean(hasApiKey || userApiKey);
-
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col antialiased">
       {/* Accessible Skip Link */}
@@ -230,7 +182,6 @@ export default function App() {
       {/* Header */}
       <Header
         onOpenCatalog={() => setIsCatalogOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
         onRegenerate={() => runAnalysis(activeView === 'recommendation' ? 'recommendation' : 'analysis')}
         isAnalyzing={isAnalyzing}
         activeView={activeView}
@@ -293,7 +244,7 @@ export default function App() {
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
-              3. Recommended Reel
+              3. Curated Pick
             </button>
           </div>
 
@@ -303,7 +254,7 @@ export default function App() {
               className="hidden sm:flex items-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3.5 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer"
             >
               <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-              <span>WOW Reasoning Graph</span>
+              <span>Reasoning Graph</span>
             </button>
           )}
         </div>
@@ -389,37 +340,17 @@ export default function App() {
                       Proceed to Final Step
                     </span>
                     <h4 className="text-base font-bold text-white mt-0.5">
-                      Ready to inspect the curated Tech Reel recommendation?
+                      Explore the Selected Tech Recommendation
                     </h4>
                   </div>
-
                   <button
                     onClick={() => setActiveView('recommendation')}
-                    className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-bold text-indigo-950 hover:bg-indigo-50 transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl bg-white text-indigo-950 font-bold px-4 py-2 text-xs hover:bg-indigo-50 transition-colors cursor-pointer"
                   >
-                    <span>View Recommended Reel</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <span>View Curated Tech Reel</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
-              </div>
-            )}
-
-            {activeView === 'analysis' && !analysisResult && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xs">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                  <Sparkles className="h-6 w-6" />
-                </div>
-                <h3 className="mt-3 text-base font-bold text-slate-900">No Inference Generated Yet</h3>
-                <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
-                  Run the interest inference agent on the active watch session to extract latent signals.
-                </p>
-                <button
-                  onClick={() => runAnalysis('analysis')}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>Run Interest Inference</span>
-                </button>
               </div>
             )}
 
@@ -434,30 +365,6 @@ export default function App() {
                   latencyMs={analysisLatency}
                   activeReels={currentSession.reels}
                 />
-
-                {/* Inline Reasoning Graph Preview */}
-                <div className="pt-2">
-                  <ReasoningReveal analysis={analysisResult} catalog={CATALOG} />
-                </div>
-              </div>
-            )}
-
-            {activeView === 'recommendation' && !analysisResult && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xs">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                  <Sparkles className="h-6 w-6" />
-                </div>
-                <h3 className="mt-3 text-base font-bold text-slate-900">Recommendation Pending Inference</h3>
-                <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
-                  Analyze the student watch feed to generate a grounded, anti-hype verified tech reel pick.
-                </p>
-                <button
-                  onClick={() => runAnalysis('recommendation')}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>Generate Tech Recommendation</span>
-                </button>
               </div>
             )}
           </div>
@@ -513,17 +420,6 @@ export default function App() {
         isOpen={isCatalogOpen}
         onClose={() => setIsCatalogOpen(false)}
         selectedId={analysisResult?.recommended_reel_id}
-      />
-
-      {/* API Key & Model Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        apiKey={userApiKey}
-        onSaveApiKey={handleSaveApiKey}
-        selectedModel={selectedModel}
-        onSaveModel={handleSaveModel}
-        hasServerKey={hasApiKey}
       />
 
       {/* Footer */}
