@@ -489,8 +489,8 @@ export default function App() {
       <footer className="border-t border-slate-200 bg-white py-6 mt-12 text-center text-xs text-slate-500">
         <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">PromptWars</span>
-            <span>• Interest Inference & Tech Reel Recommender</span>
+            <span className="font-bold text-slate-800">Reels Recommendation System</span>
+            <span>• AI Interest Inference & Tech Recommender</span>
           </div>
           <div className="flex items-center gap-3 text-slate-400">
             {analysisSource === 'gemini' ? (

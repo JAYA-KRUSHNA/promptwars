@@ -103,7 +103,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[PromptWars Server] Running on http://localhost:${PORT}`);
+    console.log(`[Reels Recommendation System Server] Running on http://localhost:${PORT}`);
   });
 }
 

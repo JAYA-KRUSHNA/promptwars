@@ -1,6 +1,6 @@
 import { Reel, CatalogReel } from './types';
 
-export const SYSTEM_INSTRUCTION = `You are PromptWars' Senior Interest Inference & Tech Reel Recommendation Agent.
+export const SYSTEM_INSTRUCTION = `You are the Reels Recommendation System's Senior Interest Inference & Tech Reel Recommendation Agent.
 Your mission: Analyze a student's short-form video (Reel) watch session, penetrate past surface keywords and clickbait formats to infer their true underlying technical interest, and select EXACTLY ONE high-quality, substantive educational tech Reel from the provided curated catalog.
 
 ### CORE PRINCIPLES & ANTI-PATTERNS

@@ -28,18 +28,20 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-200">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white shadow-sm shadow-indigo-200">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tracking-tight text-slate-900">PromptWars</span>
-              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 border border-indigo-200/60">
-                Interest Inference Agent
+              <span className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
+                Reels Recommendation System
+              </span>
+              <span className="hidden sm:inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200/60">
+                AI Interest Agent
               </span>
             </div>
-            <p className="text-xs text-slate-500 hidden sm:block">
-              Penetrates surface clickbait & keyword traps to infer true engineering intent
+            <p className="text-xs text-slate-500 hidden md:block">
+              Analyzes student watch sessions to infer underlying interests and recommend educational tech Reels
             </p>
           </div>
         </div>
