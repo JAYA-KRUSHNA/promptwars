@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SESSIONS } from './data/sessions';
+import { SESSIONS, ALL_REELS, generateRandomSession } from './data/sessions';
 import { CATALOG } from './data/catalog';
 import { AnalysisResult, AnalysisSource, Reel, Session } from './lib/types';
 import { Header } from './components/Header';
@@ -21,9 +21,11 @@ import {
   Database,
   Eye,
   SlidersHorizontal,
+  Dices,
 } from 'lucide-react';
 
 export default function App() {
+  const [sessionsList, setSessionsList] = useState<Session[]>(SESSIONS);
   const [activeSessionId, setActiveSessionId] = useState<string>('session_1');
   const [selectedReelIds, setSelectedReelIds] = useState<string[]>(() =>
     SESSIONS[0].reels.map((r) => r.id)
@@ -40,7 +42,7 @@ export default function App() {
   const [isKeyBannerDismissed, setIsKeyBannerDismissed] = useState<boolean>(false);
 
   const currentSession: Session =
-    SESSIONS.find((s) => s.id === activeSessionId) || SESSIONS[0];
+    sessionsList.find((s) => s.id === activeSessionId) || sessionsList[0] || SESSIONS[0];
 
   // Check API key configuration on mount
   useEffect(() => {
@@ -71,7 +73,6 @@ export default function App() {
   useEffect(() => {
     if (currentSession) {
       setSelectedReelIds(currentSession.reels.map((r) => r.id));
-      // Reset analysis when session changes so the user re-runs with Gemini
       setAnalysisResult(null);
       setAnalysisSource(null);
       setAnalysisLatency(null);
@@ -94,6 +95,46 @@ export default function App() {
     setSelectedReelIds([]);
   };
 
+  // Generate a live randomized student feed
+  const handleRandomizeFeed = () => {
+    const newRandomSession = generateRandomSession(5);
+    setSessionsList((prev) => [
+      newRandomSession,
+      ...prev.filter((s) => !s.id.startsWith('custom_random_')),
+    ]);
+    setActiveSessionId(newRandomSession.id);
+    setSelectedReelIds(newRandomSession.reels.map((r) => r.id));
+    setAnalysisResult(null);
+    setAnalysisSource(null);
+    setAnalysisLatency(null);
+    setErrorMessage(null);
+    setActiveView('reels');
+  };
+
+  // Interactive telemetry update on any reel card
+  const handleUpdateEngagement = (reelId: string, updated: Partial<Reel['engagement']>) => {
+    setSessionsList((prev) =>
+      prev.map((s) => {
+        if (s.id !== activeSessionId) return s;
+        return {
+          ...s,
+          reels: s.reels.map((r) => {
+            if (r.id !== reelId) return r;
+            return {
+              ...r,
+              engagement: {
+                ...r.engagement,
+                ...updated,
+              },
+            };
+          }),
+        };
+      })
+    );
+    // Invalidate previous analysis so user can re-infer with updated telemetry
+    setAnalysisResult(null);
+  };
+
   // Perform API analysis
   const runAnalysis = async (targetView: 'analysis' | 'recommendation' = 'analysis') => {
     if (selectedReelIds.length === 0) return;
@@ -108,6 +149,7 @@ export default function App() {
         body: JSON.stringify({
           sessionId: activeSessionId,
           selectedReelIds: selectedReelIds,
+          customReels: currentSession.reels,
         }),
       });
 
@@ -172,12 +214,13 @@ export default function App() {
 
         {/* Session Selector Strip */}
         <SessionSelector
-          sessions={SESSIONS}
+          sessions={sessionsList}
           activeSessionId={activeSessionId}
           onSelectSession={(id) => {
             setActiveSessionId(id);
             setActiveView('reels');
           }}
+          onRandomizeFeed={handleRandomizeFeed}
           disabled={isAnalyzing}
         />
 
@@ -206,7 +249,7 @@ export default function App() {
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
-              2. Inferred Intent {analysisResult && '✓'}
+              2. Inferred Intent
             </button>
 
             <button
@@ -220,7 +263,7 @@ export default function App() {
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
-              3. Recommended Reel {analysisResult && '🎯'}
+              3. Recommended Reel
             </button>
           </div>
 
@@ -252,6 +295,7 @@ export default function App() {
                   onSelectAll={handleSelectAll}
                   onDeselectAll={handleDeselectAll}
                   onAnalyze={runAnalysis}
+                  onUpdateEngagement={handleUpdateEngagement}
                   isAnalyzing={isAnalyzing}
                 />
 

@@ -47,11 +47,17 @@ async function startServer() {
   // Analyze session reels with Gemini
   app.post('/api/analyze', async (req, res) => {
     try {
-      const { sessionId, selectedReelIds } = req.body;
+      const { sessionId, selectedReelIds, customReels } = req.body;
 
       let reelsToAnalyze: Reel[] = [];
 
-      if (sessionId) {
+      if (customReels && Array.isArray(customReels) && customReels.length > 0) {
+        if (Array.isArray(selectedReelIds) && selectedReelIds.length > 0) {
+          reelsToAnalyze = customReels.filter((r) => selectedReelIds.includes(r.id));
+        } else {
+          reelsToAnalyze = customReels;
+        }
+      } else if (sessionId) {
         const foundSession = SESSIONS.find((s) => s.id === sessionId);
         if (foundSession) {
           if (Array.isArray(selectedReelIds) && selectedReelIds.length > 0) {

@@ -10,6 +10,7 @@ interface ReelGridProps {
   onSelectAll: () => void;
   onDeselectAll: () => void;
   onAnalyze: () => void;
+  onUpdateEngagement?: (id: string, updated: Partial<Reel['engagement']>) => void;
   isAnalyzing: boolean;
 }
 
@@ -20,6 +21,7 @@ export const ReelGrid: React.FC<ReelGridProps> = ({
   onSelectAll,
   onDeselectAll,
   onAnalyze,
+  onUpdateEngagement,
   isAnalyzing,
 }) => {
   const allSelected = selectedIds.length === reels.length;
@@ -36,7 +38,7 @@ export const ReelGrid: React.FC<ReelGridProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-500">
-            Click any card or toggle checkboxes to test partial session permutations against the AI.
+            Select/uncheck cards or use the <strong className="text-slate-700">Simulate</strong> badges (15% Skip / 50% / 100%) to test dynamic AI intent inference.
           </p>
         </div>
 
@@ -87,6 +89,7 @@ export const ReelGrid: React.FC<ReelGridProps> = ({
             index={idx}
             isSelected={selectedIds.includes(reel.id)}
             onToggleSelect={onToggleSelect}
+            onUpdateEngagement={onUpdateEngagement}
           />
         ))}
       </div>

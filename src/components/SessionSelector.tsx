@@ -1,11 +1,12 @@
 import React from 'react';
 import { Session } from '../lib/types';
-import { AlertTriangle, CheckCircle2, SlidersHorizontal, Eye } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, SlidersHorizontal, Eye, Dices, Sparkles } from 'lucide-react';
 
 interface SessionSelectorProps {
   sessions: Session[];
   activeSessionId: string;
   onSelectSession: (sessionId: string) => void;
+  onRandomizeFeed?: () => void;
   disabled?: boolean;
 }
 
@@ -13,9 +14,11 @@ export const SessionSelector: React.FC<SessionSelectorProps> = ({
   sessions,
   activeSessionId,
   onSelectSession,
+  onRandomizeFeed,
   disabled = false,
 }) => {
   const currentSession = sessions.find((s) => s.id === activeSessionId) || sessions[0];
+  const isCustomSession = activeSessionId.startsWith('custom_');
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
@@ -28,28 +31,43 @@ export const SessionSelector: React.FC<SessionSelectorProps> = ({
             </span>
           </div>
           <p className="mt-0.5 text-xs text-slate-500">
-            Pick a simulated student watch session to evaluate how the agent extracts implicit intent.
+            Pick a benchmark test profile or click <strong className="text-indigo-600 font-semibold">Random Feed</strong> to generate a randomized multi-topic student watch history.
           </p>
         </div>
 
-        {/* Dropdown for quick selection */}
-        <div className="w-full sm:w-80">
-          <label htmlFor="session-select" className="sr-only">
-            Select Session
-          </label>
-          <select
-            id="session-select"
-            value={activeSessionId}
-            onChange={(e) => onSelectSession(e.target.value)}
-            disabled={disabled}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 disabled:bg-slate-100 cursor-pointer"
-          >
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+        {/* Action Controls: Randomize & Session Select */}
+        <div className="flex items-center gap-2">
+          {onRandomizeFeed && (
+            <button
+              type="button"
+              onClick={onRandomizeFeed}
+              disabled={disabled}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 transition-all cursor-pointer"
+              title="Generate a completely randomized mix of reels with simulated watch telemetry"
+            >
+              <Dices className="h-4 w-4" />
+              <span>Random Student Feed</span>
+            </button>
+          )}
+
+          <div className="w-full sm:w-64">
+            <label htmlFor="session-select" className="sr-only">
+              Select Session
+            </label>
+            <select
+              id="session-select"
+              value={activeSessionId}
+              onChange={(e) => onSelectSession(e.target.value)}
+              disabled={disabled}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 disabled:bg-slate-100 cursor-pointer"
+            >
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

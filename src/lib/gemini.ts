@@ -308,6 +308,9 @@ export function generateDeterministicAnalysis(
     const isPositive = !isSkipped && (r.engagement.watch_percent >= 75 || r.engagement.liked || r.engagement.rewatch_count > 0);
     const strength: 'positive' | 'negative' | 'neutral' = isSkipped ? 'negative' : isPositive ? 'positive' : 'neutral';
 
+    const getBaseId = (id: string) => id.split('_rand_')[0];
+    const baseId = getBaseId(r.id);
+
     const signalMap: Record<string, { surface: string; implied: string }> = {
       reel_01:  { surface: 'Java Syntax / Compile Error', implied: 'Relatable programmer identity & collegiate developer humor' },
       reel_02:  { surface: 'Google Microkitchen & Lifestyle', implied: 'Professional software engineering career aspiration' },
@@ -328,7 +331,7 @@ export function generateDeterministicAnalysis(
       reel_403: { surface: 'GPU Cores vs CPU Cores', implied: 'Throughput parallel SIMD vs low-latency out-of-order execution' },
     };
 
-    const mapped = signalMap[r.id];
+    const mapped = signalMap[baseId] || signalMap[r.id];
     const surface = mapped ? mapped.surface : r.category;
     const implied = mapped
       ? mapped.implied
@@ -354,37 +357,37 @@ export function generateDeterministicAnalysis(
   // Mapping: each catalog item → what reel IDs / hashtags boost it, and by how much
   const affinityRules: { match: (r: Reel) => boolean; boosts: Record<string, number> }[] = [
     // Interview skit / prep → FAANG Interview (strong) + Senior Engineers (moderate)
-    { match: (r) => r.id === 'reel_03' || r.hashtags.some(t => ['techinterview', 'faangprep', 'behavioralprep'].includes(t)),
+    { match: (r) => r.id.startsWith('reel_03') || r.hashtags.some(t => ['techinterview', 'faangprep', 'behavioralprep'].includes(t)),
       boosts: { cat_13: 4.0, cat_14: 1.5 } },
     // Google vlog / engineering culture → Senior Engineers (strong) + FAANG Interview (moderate) + REST/GraphQL (light)
-    { match: (r) => r.id === 'reel_02' || r.hashtags.some(t => ['swe', 'google', 'techcareer'].includes(t)),
+    { match: (r) => r.id.startsWith('reel_02') || r.hashtags.some(t => ['swe', 'google', 'techcareer'].includes(t)),
       boosts: { cat_14: 3.5, cat_13: 1.8, cat_03: 1.5 } },
     // Git rebase / team workflow → Senior Engineers + REST/GraphQL
-    { match: (r) => r.id === 'reel_06' || r.hashtags.some(t => ['git', 'engineeringbestpractices', 'versioncontrol'].includes(t)),
+    { match: (r) => r.id.startsWith('reel_06') || r.hashtags.some(t => ['git', 'engineeringbestpractices', 'versioncontrol'].includes(t)),
       boosts: { cat_14: 3.0, cat_03: 2.0, cat_04: 1.0 } },
     // Java meme → light developer culture, very low Java GC weight
-    { match: (r) => r.id === 'reel_01' || r.hashtags.some(t => ['javameme', 'codinghumor'].includes(t)),
+    { match: (r) => r.id.startsWith('reel_01') || r.hashtags.some(t => ['javameme', 'codinghumor'].includes(t)),
       boosts: { cat_14: 1.0, cat_07: 0.2 } },
     // Hardware setup / ergonomics → light cache + career
-    { match: (r) => r.id === 'reel_04' || r.hashtags.some(t => ['developergear', 'macbook', 'setuptour'].includes(t)),
+    { match: (r) => r.id.startsWith('reel_04') || r.hashtags.some(t => ['developergear', 'macbook', 'setuptour'].includes(t)),
       boosts: { cat_14: 0.8, cat_12: 0.6 } },
     // JVM Internals (Eden/Locks/Generics)
-    { match: (r) => ['reel_201', 'reel_202', 'reel_204'].includes(r.id) || r.hashtags.some(t => ['jvm', 'locks', 'memoryallocation', 'generics'].includes(t)),
+    { match: (r) => ['reel_201', 'reel_202', 'reel_204'].some(id => r.id.startsWith(id)) || r.hashtags.some(t => ['jvm', 'locks', 'memoryallocation', 'generics'].includes(t)),
       boosts: { cat_07: 4.0, cat_08: 2.0 } },
     // Spring Boot
-    { match: (r) => r.id === 'reel_203' || r.hashtags.some(t => ['springboot', 'javaframework'].includes(t)),
+    { match: (r) => r.id.startsWith('reel_203') || r.hashtags.some(t => ['springboot', 'javaframework'].includes(t)),
       boosts: { cat_08: 4.5, cat_07: 2.0 } },
     // Backprop / Attention math → Transformers (strong) + Neural Net coding (moderate)
-    { match: (r) => ['reel_301', 'reel_302'].includes(r.id) || r.hashtags.some(t => ['backprop', 'attentionmechanism', 'transformers', 'deeplearningmath'].includes(t)),
+    { match: (r) => ['reel_301', 'reel_302'].some(id => r.id.startsWith(id)) || r.hashtags.some(t => ['backprop', 'attentionmechanism', 'transformers', 'deeplearningmath'].includes(t)),
       boosts: { cat_05: 4.0, cat_06: 2.5 } },
     // NumPy / Python ML → Neural Net coding (strong) + Transformers (moderate)
-    { match: (r) => r.id === 'reel_304' || r.hashtags.some(t => ['numpy', 'pythonperformance'].includes(t)),
+    { match: (r) => r.id.startsWith('reel_304') || r.hashtags.some(t => ['numpy', 'pythonperformance'].includes(t)),
       boosts: { cat_06: 4.0, cat_05: 2.0 } },
     // GPU / SIMD → GPU tensor (strong) + CPU cache (moderate)
-    { match: (r) => r.id === 'reel_403' || r.hashtags.some(t => ['gpu', 'simd'].includes(t)),
+    { match: (r) => r.id.startsWith('reel_403') || r.hashtags.some(t => ['gpu', 'simd'].includes(t)),
       boosts: { cat_11: 4.5, cat_12: 2.5 } },
     // TSMC / CPU cache latency → CPU cache (strong) + GPU tensor (moderate)
-    { match: (r) => ['reel_401', 'reel_402'].includes(r.id) || r.hashtags.some(t => ['cpu', 'semiconductors', 'memorylatency', 'chipdesign'].includes(t)),
+    { match: (r) => ['reel_401', 'reel_402'].some(id => r.id.startsWith(id)) || r.hashtags.some(t => ['cpu', 'semiconductors', 'memorylatency', 'chipdesign'].includes(t)),
       boosts: { cat_12: 4.0, cat_11: 2.0 } },
     // Lifestyle / web / entertainment → DNS (light) + Binary Search (light)
     { match: (r) => r.hashtags.some(t => ['cooking', 'pets', 'css', 'webdesign', 'keyboards'].includes(t)),

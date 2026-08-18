@@ -1,4 +1,4 @@
-import { Session } from '../lib/types';
+import { Session, Reel } from '../lib/types';
 
 export const SESSIONS: Session[] = [
   {
@@ -388,3 +388,65 @@ export const SESSIONS: Session[] = [
     ],
   },
 ];
+
+// All available reels across all pre-configured test sessions
+export const ALL_REELS: Reel[] = SESSIONS.flatMap((s) => s.reels).filter(
+  (reel, idx, self) => self.findIndex((r) => r.id === reel.id) === idx
+);
+
+// Helper to generate a realistic randomized student watch session
+export function generateRandomSession(count = 5): Session {
+  // Shuffle all reels
+  const shuffled = [...ALL_REELS].sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, Math.max(3, Math.min(count, ALL_REELS.length)));
+
+  // Apply realistic randomized watch telemetry to simulate a live student browsing
+  const randomizedReels: Reel[] = selected.map((reel, index) => {
+    // 30% chance skipped early, 50% high engagement, 20% moderate
+    const roll = Math.random();
+    let watchPercent = 85;
+    let liked = false;
+    let shared = false;
+    let rewatchCount = 0;
+    let skippedEarly = false;
+
+    if (roll < 0.25) {
+      // Skipped early
+      watchPercent = Math.floor(Math.random() * 25) + 5; // 5% - 30%
+      skippedEarly = true;
+    } else if (roll < 0.7) {
+      // High completion + engaged
+      watchPercent = Math.floor(Math.random() * 20) + 80; // 80% - 100%
+      liked = Math.random() > 0.4;
+      shared = Math.random() > 0.7;
+      rewatchCount = Math.random() > 0.6 ? 1 : 0;
+    } else {
+      // Moderate casual watch
+      watchPercent = Math.floor(Math.random() * 35) + 45; // 45% - 80%
+      liked = Math.random() > 0.8;
+    }
+
+    return {
+      ...reel,
+      id: `${reel.id}_rand_${index}_${Date.now().toString(36)}`,
+      engagement: {
+        watch_percent: watchPercent,
+        rewatch_count: rewatchCount,
+        liked,
+        shared,
+        skipped_early: skippedEarly,
+      },
+    };
+  });
+
+  return {
+    id: `custom_random_${Date.now()}`,
+    name: '🎲 Custom Random Student Feed',
+    tagline: 'Dynamically Generated Multi-Topic Watch Session',
+    description: `A live randomized student watch history containing ${randomizedReels.length} reels across varied topics with simulated real-world telemetry (watch %, likes, skips).`,
+    expected_inference: 'Dynamic Holistic Multi-Signal Inference',
+    trap_warning: '✨ Dynamic Agent Test: The AI Agent evaluates the exact combination of active topics, watch times, and skips to synthesize a grounded recommendation.',
+    reels: randomizedReels,
+  };
+}
+

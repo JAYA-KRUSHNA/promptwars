@@ -6,6 +6,7 @@ interface ReelCardProps {
   reel: Reel;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
+  onUpdateEngagement?: (id: string, updated: Partial<Reel['engagement']>) => void;
   index: number;
 }
 
@@ -13,6 +14,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({
   reel,
   isSelected,
   onToggleSelect,
+  onUpdateEngagement,
   index,
 }) => {
   const isSkipped = reel.engagement.skipped_early || reel.engagement.watch_percent < 30;
@@ -26,6 +28,35 @@ export const ReelCard: React.FC<ReelCardProps> = ({
     tutorial: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     explainer: 'bg-teal-50 text-teal-700 border-teal-200',
     podcast: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  };
+
+  const handleSetWatch = (e: React.MouseEvent, pct: number, skip = false) => {
+    e.stopPropagation();
+    if (onUpdateEngagement) {
+      onUpdateEngagement(reel.id, {
+        watch_percent: pct,
+        skipped_early: skip,
+      });
+    }
+  };
+
+  const handleToggleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onUpdateEngagement) {
+      onUpdateEngagement(reel.id, {
+        liked: !reel.engagement.liked,
+      });
+    }
+  };
+
+  const handleToggleRewatch = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onUpdateEngagement) {
+      const nextRewatch = reel.engagement.rewatch_count > 0 ? 0 : 1;
+      onUpdateEngagement(reel.id, {
+        rewatch_count: nextRewatch,
+      });
+    }
   };
 
   return (
@@ -99,7 +130,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({
         </div>
       </div>
 
-      {/* Engagement Telemetry */}
+      {/* Engagement Telemetry & Simulator Controls */}
       <div className="mt-4 border-t border-slate-100 pt-3">
         <div className="flex items-center justify-between text-xs text-slate-600 mb-1.5">
           <span className="font-medium">Watch Completion</span>
@@ -126,29 +157,86 @@ export const ReelCard: React.FC<ReelCardProps> = ({
           />
         </div>
 
-        {/* Engagement Badges */}
+        {/* Quick Watch Time Presets (Simulation Controls) */}
+        {onUpdateEngagement && (
+          <div className="mt-2 flex items-center justify-between gap-1 text-[10px]">
+            <span className="text-slate-400 font-medium">Simulate:</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={(e) => handleSetWatch(e, 15, true)}
+                className={`px-1.5 py-0.5 rounded border transition-colors ${
+                  isSkipped
+                    ? 'bg-rose-100 text-rose-700 border-rose-300 font-bold'
+                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="Simulate user skipping early"
+              >
+                15% Skip
+              </button>
+              <button
+                type="button"
+                onClick={(e) => handleSetWatch(e, 50, false)}
+                className={`px-1.5 py-0.5 rounded border transition-colors ${
+                  reel.engagement.watch_percent >= 40 && reel.engagement.watch_percent <= 65 && !isSkipped
+                    ? 'bg-amber-100 text-amber-700 border-amber-300 font-bold'
+                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="Simulate 50% watch"
+              >
+                50%
+              </button>
+              <button
+                type="button"
+                onClick={(e) => handleSetWatch(e, 100, false)}
+                className={`px-1.5 py-0.5 rounded border transition-colors ${
+                  reel.engagement.watch_percent >= 90
+                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300 font-bold'
+                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="Simulate 100% full watch"
+              >
+                100%
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Engagement Action Badges */}
         <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500">
-          <div className="flex items-center gap-2">
-            {reel.engagement.liked && (
-              <span className="flex items-center gap-1 font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
-                <Heart className="h-3 w-3 fill-rose-600" /> Liked
-              </span>
-            )}
-            {reel.engagement.shared && (
-              <span className="flex items-center gap-1 font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
-                <Share2 className="h-3 w-3" /> Shared
-              </span>
-            )}
-            {reel.engagement.rewatch_count > 0 && (
-              <span className="flex items-center gap-1 font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                <Eye className="h-3 w-3" /> +{reel.engagement.rewatch_count} rewatch
-              </span>
-            )}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleToggleLike}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold transition-colors ${
+                reel.engagement.liked
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                  : 'bg-slate-50 text-slate-400 border border-slate-200 hover:text-slate-600'
+              }`}
+              title="Toggle Liked"
+            >
+              <Heart className={`h-3 w-3 ${reel.engagement.liked ? 'fill-rose-600 text-rose-600' : ''}`} />
+              <span>{reel.engagement.liked ? 'Liked' : 'Like'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleRewatch}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md font-medium transition-colors ${
+                reel.engagement.rewatch_count > 0
+                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold'
+                  : 'bg-slate-50 text-slate-400 border border-slate-200 hover:text-slate-600'
+              }`}
+              title="Toggle Rewatch"
+            >
+              <Eye className="h-3 w-3" />
+              <span>+{reel.engagement.rewatch_count}</span>
+            </button>
           </div>
 
           {isSkipped && (
             <span className="flex items-center gap-1 font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded-md">
-              <FastForward className="h-3 w-3" /> Skipped Early
+              <FastForward className="h-3 w-3" /> Skipped
             </span>
           )}
         </div>
