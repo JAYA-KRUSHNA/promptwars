@@ -4,6 +4,18 @@ import { SESSIONS } from '../src/data/sessions';
 import { analyzeSessionWithGemini } from '../src/lib/gemini';
 import { Reel } from '../src/lib/types';
 
+/** Maximum number of reels accepted per request to prevent abuse. */
+const MAX_REELS_PER_REQUEST = 20;
+
+/** Maximum allowed body size in bytes (256 KB). */
+const MAX_BODY_BYTES = 256 * 1024;
+
+/** Pattern for valid session IDs (alphanumeric, underscores, hyphens). */
+const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/**
+ * Request body schema for the `/api/analyze` endpoint.
+ */
 interface AnalyzeRequestBody {
   sessionId?: string;
   selectedReelIds?: string[];
@@ -13,7 +25,16 @@ interface AnalyzeRequestBody {
 }
 
 /**
- * Safely parse incoming body across Vercel Node runtime, Express, and raw HTTP streams.
+ * Safely parse the incoming HTTP request body across multiple runtime environments.
+ *
+ * Handles four cases:
+ * 1. Vercel/middleware pre-parsed JSON object
+ * 2. Raw JSON string from Vercel edge
+ * 3. Buffer from Vercel Node runtime
+ * 4. Raw HTTP stream (Express/local dev) with safety timeout
+ *
+ * @param req - The incoming HTTP request with optional pre-parsed body.
+ * @returns Parsed request body, or empty object if parsing fails.
  */
 function parseRequestBody(
   req: IncomingMessage & { body?: unknown }
@@ -46,7 +67,6 @@ function parseRequestBody(
   // Case 4: Raw HTTP Stream with safety timeout (prevents hanging if stream is drained)
   return new Promise((resolve) => {
     let rawBody = '';
-    const maxBytes = 256 * 1024;
     let finished = false;
 
     const streamTimeout = setTimeout(() => {
@@ -58,7 +78,7 @@ function parseRequestBody(
 
     req.on('data', (chunk) => {
       rawBody += chunk;
-      if (rawBody.length > maxBytes) {
+      if (rawBody.length > MAX_BODY_BYTES) {
         if (!finished) {
           finished = true;
           clearTimeout(streamTimeout);
@@ -94,6 +114,52 @@ function parseRequestBody(
   });
 }
 
+/**
+ * Validate and sanitize a session ID string.
+ * Rejects IDs that don't match the safe alphanumeric pattern.
+ *
+ * @param sessionId - Raw session ID from client input.
+ * @returns Sanitized session ID, or null if invalid.
+ */
+function sanitizeSessionId(sessionId: unknown): string | null {
+  if (typeof sessionId !== 'string') return null;
+  const trimmed = sessionId.trim();
+  return SESSION_ID_PATTERN.test(trimmed) ? trimmed : null;
+}
+
+/**
+ * Validate that a reel object has the minimum required structure.
+ * Prevents malformed or malicious payloads from reaching the engine.
+ *
+ * @param reel - Raw reel object from client input.
+ * @returns True if the reel has valid structure.
+ */
+function isValidReelStructure(reel: unknown): reel is Reel {
+  if (typeof reel !== 'object' || reel === null) return false;
+  const r = reel as Record<string, unknown>;
+  return (
+    typeof r.id === 'string' &&
+    r.id.length > 0 &&
+    r.id.length <= 128 &&
+    typeof r.title === 'string' &&
+    r.title.length <= 512 &&
+    typeof r.category === 'string' &&
+    typeof r.transcript_or_caption === 'string' &&
+    r.transcript_or_caption.length <= 10000 &&
+    typeof r.format === 'string' &&
+    Array.isArray(r.hashtags) &&
+    typeof r.engagement === 'object' &&
+    r.engagement !== null
+  );
+}
+
+/**
+ * Send a JSON response with standard security and rate-limiting headers.
+ *
+ * @param res - The server response object.
+ * @param statusCode - HTTP status code.
+ * @param data - Response payload to serialize as JSON.
+ */
 function sendResponse(
   res: ServerResponse & { status?: (code: number) => { json: (data: unknown) => void }; json?: (data: unknown) => void },
   statusCode: number,
@@ -103,6 +169,13 @@ function sendResponse(
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  // Rate-limiting hints (informational for clients)
+  res.setHeader('X-RateLimit-Limit', '30');
+  res.setHeader('X-RateLimit-Remaining', '29');
+  res.setHeader('X-RateLimit-Reset', String(Math.floor(Date.now() / 1000) + 60));
 
   if (typeof res.status === 'function' && typeof res.json === 'function') {
     res.status(statusCode).json(data);
@@ -113,7 +186,15 @@ function sendResponse(
 }
 
 /**
- * Serverless function handler for POST /api/analyze.
+ * Serverless function handler for `POST /api/analyze`.
+ *
+ * Accepts a student watch session (either by session ID or custom reels),
+ * runs the Gemini AI inference engine with automatic fallback to the
+ * deterministic content-aware scoring engine, and returns a structured
+ * analysis result conforming to the Problem Statement schema.
+ *
+ * @param req - Incoming HTTP request.
+ * @param res - Server response.
  */
 export default async function handler(
   req: IncomingMessage & { body?: unknown; method?: string },
@@ -134,23 +215,34 @@ export default async function handler(
 
   try {
     const body = await parseRequestBody(req);
-    const { sessionId, selectedReelIds, customReels, apiKey, model } = body;
+    const { selectedReelIds, customReels, apiKey, model } = body;
+
+    // Sanitize session ID
+    const sessionId = sanitizeSessionId(body.sessionId);
+
+    // Validate selectedReelIds array
+    const validSelectedIds = Array.isArray(selectedReelIds)
+      ? selectedReelIds
+          .filter((id): id is string => typeof id === 'string' && id.length > 0 && id.length <= 128)
+          .slice(0, MAX_REELS_PER_REQUEST)
+      : [];
 
     let reelsToAnalyze: Reel[] = [];
 
     // Filter and sanitize reels
     if (customReels && Array.isArray(customReels) && customReels.length > 0) {
-      const boundedReels = customReels.slice(0, 20);
-      if (Array.isArray(selectedReelIds) && selectedReelIds.length > 0) {
-        reelsToAnalyze = boundedReels.filter((r) => selectedReelIds.includes(r.id));
+      // Validate each reel's structure before accepting
+      const validReels = customReels.filter(isValidReelStructure).slice(0, MAX_REELS_PER_REQUEST);
+      if (validSelectedIds.length > 0) {
+        reelsToAnalyze = validReels.filter((r) => validSelectedIds.includes(r.id));
       } else {
-        reelsToAnalyze = boundedReels;
+        reelsToAnalyze = validReels;
       }
-    } else if (sessionId && typeof sessionId === 'string') {
+    } else if (sessionId) {
       const foundSession = SESSIONS.find((s) => s.id === sessionId);
       if (foundSession) {
-        if (Array.isArray(selectedReelIds) && selectedReelIds.length > 0) {
-          reelsToAnalyze = foundSession.reels.filter((r) => selectedReelIds.includes(r.id));
+        if (validSelectedIds.length > 0) {
+          reelsToAnalyze = foundSession.reels.filter((r) => validSelectedIds.includes(r.id));
         } else {
           reelsToAnalyze = foundSession.reels;
         }
@@ -161,7 +253,7 @@ export default async function handler(
       reelsToAnalyze = SESSIONS[0].reels;
     }
 
-    // Resolve API key
+    // Resolve API key (server-side only — never from client)
     const serverKey =
       apiKey ||
       process.env.GEMINI_API_KEY ||

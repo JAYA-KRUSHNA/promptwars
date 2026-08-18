@@ -27,7 +27,11 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
   return (
     <div className="space-y-6">
       {/* Primary Inferred Interest Hero */}
-      <div className="glass-card rounded-2xl p-6 sm:p-8 transition-all">
+      <div
+        role="region"
+        aria-label="Inferred Latent Intent Details"
+        className="glass-card rounded-2xl p-6 sm:p-8 transition-all"
+      >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-2">

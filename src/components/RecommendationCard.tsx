@@ -28,7 +28,11 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
   return (
     <div className="space-y-6">
       {/* Main Selected Recommendation Spotlight */}
-      <div className="glass-card rounded-2xl p-6 sm:p-8 transition-all">
+      <div
+        role="region"
+        aria-label="Curated Recommendation Spotlight"
+        className="glass-card pulse-glow rounded-2xl p-6 sm:p-8 transition-all"
+      >
         {/* Top Badges */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">

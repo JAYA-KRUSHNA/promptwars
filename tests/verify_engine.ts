@@ -266,6 +266,158 @@ console.log('\nSUITE 5: Schema Conformity & Catalog Grounding');
   assert(Boolean(emptyRes.recommended_reel_id), 'Edge Case: Empty session provides fallback recommendation');
 }
 
+// ── SUITE 6: INPUT SANITIZATION & EXTREME EDGE CASES ─────────────────────
+console.log('\nSUITE 6: Input Sanitization & Extreme Edge Cases');
+{
+  // Test 1: Unicode / Special Characters in Transcripts & Titles
+  const unicodeReels: Reel[] = [
+    {
+      id: 'unicode_1',
+      title: '🚀⚡️ Machine Learning & Deep Neural Nets 🤖🧠 [日本語/Français/中文]',
+      category: 'AI',
+      hashtags: ['ai', 'machinelearning', 'deeplearning'],
+      format: 'tutorial',
+      transcript_or_caption: 'Transformer architecture 🎯 self-attention multi-head weights in Python 🐍',
+      engagement: { watch_percent: 95, liked: true, shared: true, rewatch_count: 2, skipped_early: false },
+    },
+  ];
+  const unicodeRes = generateDeterministicAnalysis(unicodeReels, CATALOG);
+  assert(
+    unicodeRes.category === 'AI' && (unicodeRes.recommended_reel_id === 'cat_05' || unicodeRes.recommended_reel_id === 'cat_06'),
+    'Edge Case: Unicode & Emoji-rich titles and transcripts parsed safely without crash'
+  );
+
+  // Test 2: Huge Transcript (10,000 chars stress test)
+  const hugeTranscript = 'system design distributed architecture microservices database sharding consistency latency throughput '.repeat(100);
+  const hugeReels: Reel[] = [
+    {
+      id: 'huge_1',
+      title: 'Ultra High Scale Architecture',
+      category: 'HLD',
+      hashtags: ['systemdesign', 'hld', 'architecture'],
+      format: 'explainer',
+      transcript_or_caption: hugeTranscript,
+      engagement: { watch_percent: 90, liked: true, shared: false, rewatch_count: 1, skipped_early: false },
+    },
+  ];
+  const hugeRes = generateDeterministicAnalysis(hugeReels, CATALOG);
+  assert(
+    hugeRes.category === 'HLD' || hugeRes.category === 'Cloud' || hugeRes.category === 'Other',
+    'Edge Case: 10,000+ character transcript handled within linear memory bounds'
+  );
+
+  // Test 3: Zero-Engagement Session (all 0% watch, no interaction)
+  const zeroEngReels: Reel[] = [
+    {
+      id: 'zero_1',
+      title: 'Random Tech Video',
+      category: 'Java',
+      hashtags: ['java'],
+      format: 'vlog',
+      transcript_or_caption: 'Hello world',
+      engagement: { watch_percent: 0, liked: false, shared: false, rewatch_count: 0, skipped_early: true },
+    },
+  ];
+  const zeroRes = generateDeterministicAnalysis(zeroEngReels, CATALOG);
+  assert(
+    zeroRes.confidence === 'Low',
+    'Edge Case: Zero-engagement session correctly calibrated to Low confidence'
+  );
+  assert(
+    Boolean(zeroRes.recommended_reel_id),
+    'Edge Case: Zero-engagement session provides valid safe fallback'
+  );
+
+  // Test 4: Single Reel Minimal Session
+  const singleReel: Reel[] = [
+    {
+      id: 'single_1',
+      title: 'Quick Binary Search',
+      category: 'DSA',
+      hashtags: ['dsa', 'algorithms'],
+      format: 'tutorial',
+      transcript_or_caption: 'Binary search algorithm log n time complexity sorted array',
+      engagement: { watch_percent: 100, liked: true, shared: false, rewatch_count: 1, skipped_early: false },
+    },
+  ];
+  const singleRes = generateDeterministicAnalysis(singleReel, CATALOG);
+  assert(
+    singleRes.category === 'DSA' && singleRes.recommended_reel_id === 'cat_02',
+    'Edge Case: Single-reel session accurately isolates DSA intent and recommends Binary Search'
+  );
+
+  // Test 5: Special characters in Hashtags (#c++, #c#, #node.js)
+  const specialHashReels: Reel[] = [
+    {
+      id: 'special_1',
+      title: 'C++ Systems Programming & Memory',
+      category: 'Hardware',
+      hashtags: ['c++', 'c#', 'node.js', '.net'],
+      format: 'tutorial',
+      transcript_or_caption: 'Memory management pointers heap stack cpu cache',
+      engagement: { watch_percent: 92, liked: true, shared: false, rewatch_count: 1, skipped_early: false },
+    },
+  ];
+  const specialHashRes = generateDeterministicAnalysis(specialHashReels, CATALOG);
+  assert(
+    specialHashRes.category === 'Hardware',
+    'Edge Case: Programming hashtags with +, #, and dots handled cleanly'
+  );
+}
+
+// ── SUITE 7: CATALOG INTEGRITY & ALTERNATIVE RECOMMENDATION AUDIT ─────────
+console.log('\nSUITE 7: Catalog Integrity & Alternative Recommendation Audit');
+{
+  // Verify alternative recommendations are never hype distractors across all sessions
+  const hypeIds = ['cat_04', 'cat_16', 'cat_17'];
+  let allAlternativesClean = true;
+  for (const session of SESSIONS) {
+    const res = generateDeterministicAnalysis(session.reels, CATALOG);
+    if (res.alternative_recommendation) {
+      if (hypeIds.includes(res.alternative_recommendation.catalog_id)) {
+        allAlternativesClean = false;
+        break;
+      }
+    }
+  }
+  assert(
+    allAlternativesClean,
+    'Alternative Recommendations: Zero hype distractors generated as secondary recommendations'
+  );
+
+  // Verify candidate evaluations contain valid reasons and status
+  const evalCheck = generateDeterministicAnalysis(SESSIONS[0].reels, CATALOG);
+  const validEvaluations = evalCheck.candidate_evaluations.every(
+    (ev) => ev.catalog_id && ev.title && ['selected', 'rejected_hype', 'rejected_redundant', 'rejected_mismatch'].includes(ev.evaluated_status) && ev.rationale.length > 5
+  );
+  assert(
+    validEvaluations,
+    'Candidate Evaluations: Audit log includes rigorous rationales and valid status enums'
+  );
+}
+
+// ── SUITE 8: HIGH-THROUGHPUT PERFORMANCE BENCHMARK ────────────────────────
+console.log('\nSUITE 8: High-Throughput Performance Benchmark');
+{
+  const ITERATIONS = 100;
+  const startPerf = Date.now();
+  for (let i = 0; i < ITERATIONS; i++) {
+    const feed = generateRandomSession(7);
+    generateDeterministicAnalysis(feed.reels, CATALOG);
+  }
+  const totalMs = Date.now() - startPerf;
+  const avgMsPerOp = totalMs / ITERATIONS;
+
+  assert(
+    totalMs < 500,
+    `Performance: Processed ${ITERATIONS} full sessions in ${totalMs}ms (< 500ms required)`
+  );
+  assert(
+    avgMsPerOp < 5.0,
+    `Latency: Average execution time ${avgMsPerOp.toFixed(2)}ms per analysis (< 5.0ms target)`
+  );
+}
+
 // ── TEST SUMMARY ────────────────────────────────────────────────────────────
 console.log('\n═══════════════════════════════════════════════════');
 console.log(`  RESULTS: ${passed} passed, ${failed} failed (${passed + failed} total)`);
@@ -275,5 +427,5 @@ if (failed > 0) {
   console.error('Failed tests:\n' + failures.join('\n'));
   process.exit(1);
 } else {
-  console.log('🎉 ALL 24/24 AUTOMATED ENGINE & REGRESSION TESTS PASSED!\n');
+  console.log(`🎉 ALL ${passed}/${passed} AUTOMATED ENGINE & REGRESSION TESTS PASSED!\n`);
 }

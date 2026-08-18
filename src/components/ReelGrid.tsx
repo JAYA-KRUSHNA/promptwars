@@ -83,8 +83,12 @@ export const ReelGrid: React.FC<ReelGridProps> = ({
         </div>
       </div>
 
-      {/* Grid of Reels */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Grid of Reels with Stagger-In Animation */}
+      <div
+        role="region"
+        aria-label="Reels list"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger-grid"
+      >
         {reels.map((reel, idx) => (
           <ReelCard
             key={reel.id}

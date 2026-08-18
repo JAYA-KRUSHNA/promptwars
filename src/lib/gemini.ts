@@ -9,6 +9,14 @@ import { SYSTEM_INSTRUCTION, buildUserPrompt } from './recommendationPrompt';
 let aiClient: GoogleGenAI | null = null;
 let lastUsedKey: string | null = null;
 
+/**
+ * Retrieve or create a singleton GoogleGenAI client instance.
+ * Resolves API key from override, environment variables, or returns null
+ * if no valid key is available.
+ *
+ * @param overrideKey - Optional API key to use instead of environment variables.
+ * @returns GoogleGenAI client instance, or null if no valid key is configured.
+ */
 function getAiClient(overrideKey?: string): GoogleGenAI | null {
   const key =
     (overrideKey && overrideKey.trim().length > 10 ? overrideKey.trim() : null) ||
@@ -34,6 +42,19 @@ function getAiClient(overrideKey?: string): GoogleGenAI | null {
 // ═══════════════════════════════════════════════════════════════════════
 // Post-validation: ensures catalog grounding and anti-hype compliance
 // ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Post-validate a Gemini analysis result against the catalog.
+ *
+ * Performs three critical checks:
+ * 1. Verifies the recommended reel ID exists in the catalog
+ * 2. Syncs title/category/difficulty from the catalog source of truth
+ * 3. Applies the anti-hype guard — auto-corrects if Gemini selected a distractor
+ *
+ * @param parsed - The raw analysis result from Gemini inference.
+ * @param catalog - The curated recommendation catalog for validation.
+ * @returns Object with the validated result and a boolean indicating validity.
+ */
 function postValidateAnalysis(
   parsed: AnalysisResult,
   catalog: CatalogReel[]
@@ -112,6 +133,20 @@ function postValidateAnalysis(
 // ═══════════════════════════════════════════════════════════════════════
 // Gemini Live Inference (with fixed model names & multi-model fallback)
 // ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Run AI interest inference on a student watch session using the Gemini API.
+ *
+ * Attempts multiple Gemini models in priority order with automatic retry on 503.
+ * If all models fail or the API key is unavailable, seamlessly falls back to
+ * the deterministic content-aware scoring engine.
+ *
+ * @param sessionReels - Array of reels from the student's watch session.
+ * @param catalog - Curated recommendation catalog (defaults to CATALOG).
+ * @param overrideApiKey - Optional API key override for server-side use.
+ * @param overrideModel - Optional model name override (e.g., 'gemini-3.5-flash').
+ * @returns Analysis response containing the result, source ('gemini' | 'fallback'), and latency.
+ */
 export async function analyzeSessionWithGemini(
   sessionReels: Reel[],
   catalog: CatalogReel[] = CATALOG,
@@ -337,7 +372,11 @@ const STOPWORDS = new Set([
 
 /**
  * Extract meaningful keywords from a text string.
- * Removes stopwords, short tokens, and normalizes to lowercase.
+ * Removes stopwords, short tokens (< 3 chars), and normalizes to lowercase.
+ * Preserves programming-relevant characters like `#`, `+`, `-`, and `_`.
+ *
+ * @param text - Raw text to extract keywords from (transcript, title, etc.).
+ * @returns Set of unique, normalized keyword tokens.
  */
 function extractKeywords(text: string): Set<string> {
   if (!text) return new Set();
@@ -352,7 +391,12 @@ function extractKeywords(text: string): Set<string> {
 
 /**
  * Compute the overlap ratio between two keyword sets.
- * Returns a value between 0.0 and 1.0 (Jaccard-like similarity).
+ * Uses min-set normalization (more generous than pure Jaccard) to measure
+ * semantic similarity between reel content and catalog item descriptions.
+ *
+ * @param setA - First keyword set (e.g., from a reel's transcript).
+ * @param setB - Second keyword set (e.g., from a catalog item's tags/description).
+ * @returns Overlap ratio between 0.0 (no overlap) and 1.0 (complete overlap).
  */
 function keywordOverlap(setA: Set<string>, setB: Set<string>): number {
   if (setA.size === 0 || setB.size === 0) return 0;
@@ -448,7 +492,12 @@ const FORMAT_INTENT: Record<string, { difficultyBias: string; intentWeight: numb
 };
 
 /**
- * Per-reel signal extraction with content-aware implied signals.
+ * Extract per-reel cognitive signals from watch telemetry.
+ * Transforms raw engagement metrics into content-aware implied signals
+ * that distinguish surface-level keyword exposure from genuine interest.
+ *
+ * @param r - A single reel with engagement telemetry.
+ * @returns Signal breakdown with reel ID, surface topic, implied signal, strength, and weight explanation.
  */
 function extractReelSignal(r: Reel) {
   const isSkipped = r.engagement.skipped_early || r.engagement.watch_percent < 30;
@@ -486,8 +535,14 @@ function extractReelSignal(r: Reel) {
 }
 
 /**
- * Compute engagement weight for a single reel.
- * Positive engagement amplifies affinity, negative suppresses.
+ * Compute a continuous engagement weight for a single reel.
+ *
+ * Combines watch percentage, rewatch count, likes, and shares into a single
+ * scalar that amplifies positive affinity or suppresses via negative penalty.
+ * Skipped reels receive a strong -2.5 penalty to act as active rejection signals.
+ *
+ * @param r - A single reel with engagement telemetry.
+ * @returns Numeric weight: negative for skipped reels, positive for engaged reels.
  */
 function computeEngagementWeight(r: Reel): number {
   const isSkipped = r.engagement.skipped_early || r.engagement.watch_percent < 30;
@@ -513,6 +568,24 @@ function computeEngagementWeight(r: Reel): number {
 // ═══════════ MAIN DETERMINISTIC ANALYSIS ENGINE ══════════════════════
 // ═══════════════════════════════════════════════════════════════════════
 
+/**
+ * Generate a deterministic interest analysis using the content-aware scoring engine.
+ *
+ * This is the core fallback engine that guarantees 100% availability without
+ * any external API dependency. It uses a multi-factor scoring algorithm:
+ *
+ * 1. **Category Affinity** — Maps reel categories to catalog items via semantic mapping
+ * 2. **Hashtag Overlap** — Compares reel hashtags against catalog item tags
+ * 3. **Transcript Keywords** — NLP keyword extraction and catalog description matching
+ * 4. **Format Intent** — Infers difficulty preference from content format (tutorial vs meme)
+ * 5. **Cross-Reel Clustering** — Amplifies categories that appear in multiple reels
+ *
+ * Anti-hype distractors are permanently disqualified with `-Infinity` scores.
+ *
+ * @param reels - Array of reels from the student's watch session.
+ * @param catalog - Curated recommendation catalog (defaults to CATALOG).
+ * @returns Complete AnalysisResult conforming to the Problem Statement schema.
+ */
 export function generateDeterministicAnalysis(
   reels: Reel[],
   catalog: CatalogReel[] = CATALOG
@@ -814,6 +887,15 @@ export function generateDeterministicAnalysis(
 // ═══════════ DYNAMIC INTENT NARRATIVE GENERATORS ═════════════════════
 // ═══════════════════════════════════════════════════════════════════════
 
+/**
+ * Generate a human-readable interest label from the winning catalog item.
+ * Uses category-specific label variants with deterministic selection.
+ *
+ * @param winner - The winning catalog item with its computed score.
+ * @param dominantCategory - The most engaged category from the session.
+ * @param distinctCategories - Number of distinct positive categories in the session.
+ * @returns Descriptive interest label string.
+ */
 function generateInterestLabel(
   winner: CatalogReel & { score: number },
   dominantCategory: string,
@@ -844,6 +926,16 @@ function generateInterestLabel(
   return labels[idx];
 }
 
+/**
+ * Generate a cross-reel cluster synthesis summary.
+ * Describes how positive and negative engagement patterns converge toward the recommendation.
+ *
+ * @param positiveReels - Reels with positive engagement signals.
+ * @param negativeReels - Reels that were skipped or rejected.
+ * @param winner - The winning catalog recommendation.
+ * @param dominantCategory - The dominant category from the session.
+ * @returns Cluster summary narrative string.
+ */
 function generateClusterSummary(
   positiveReels: Reel[],
   negativeReels: Reel[],
@@ -868,6 +960,16 @@ function generateClusterSummary(
   return summary;
 }
 
+/**
+ * Generate the WHY evidence text from engagement telemetry.
+ * Highlights deep engagement (85%+ watch, rewatches) and explicit likes
+ * as evidence for the inference, plus skipped reels as negative filters.
+ *
+ * @param positiveReels - Reels with positive engagement.
+ * @param negativeReels - Reels that were skipped early.
+ * @param winner - The winning catalog recommendation.
+ * @returns Evidence-based WHY narrative string.
+ */
 function generateWhyText(
   positiveReels: Reel[],
   negativeReels: Reel[],
@@ -904,6 +1006,15 @@ function generateWhyText(
     : `Watch patterns suggest ${winner.category} interest based on content alignment with "${winner.title}".`;
 }
 
+/**
+ * Generate the surface-vs-underlying contrast text that demonstrates
+ * why naive keyword matching fails on this session.
+ *
+ * @param reels - All reels in the session.
+ * @param winner - The winning catalog recommendation.
+ * @param dominantCategory - The dominant category from the session.
+ * @returns Contrast narrative explaining the keyword trap defense.
+ */
 function generateTrapText(
   reels: Reel[],
   winner: CatalogReel & { score: number },
@@ -915,6 +1026,17 @@ function generateTrapText(
   return `A naive keyword matcher sees surface categories: [${naiveKeywords}] and would likely match the most frequent keyword. The content-aware engine instead analyzes transcript semantics, engagement depth, hashtag-to-catalog tag overlap, and cross-reel clustering to identify that the true underlying intent converges on "${winner.title}" (${winner.category}).`;
 }
 
+/**
+ * Generate the WHY THIS RECOMMENDATION justification text.
+ * Connects the student's engagement pattern to the specific catalog item,
+ * referencing liked/rewatched counts and the item's description.
+ *
+ * @param positiveReels - Reels with positive engagement.
+ * @param negativeReels - Reels that were skipped early.
+ * @param winner - The winning catalog recommendation.
+ * @param dominantCategory - The dominant category from the session.
+ * @returns Justification narrative connecting interest to recommendation.
+ */
 function generateWhyThisRecommendation(
   positiveReels: Reel[],
   negativeReels: Reel[],

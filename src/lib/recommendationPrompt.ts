@@ -1,5 +1,25 @@
+/**
+ * @file recommendationPrompt.ts
+ * @description Prompt engineering module for the Gemini-powered Reels Recommendation System.
+ *
+ * Contains the system instruction (persona definition + core inference principles)
+ * and the dynamic user prompt builder that serializes session reels and catalog
+ * items into a structured prompt for Gemini's structured JSON output mode.
+ */
+
 import { Reel, CatalogReel } from './types';
 
+/**
+ * System instruction that defines the AI agent's persona, core inference principles,
+ * and behavioral constraints for the Gemini model.
+ *
+ * Key principles enforced:
+ * 1. Surface vs Underlying intent differentiation (anti-keyword-matching)
+ * 2. Engagement-weighted signal extraction (positive/negative/neutral)
+ * 3. Anti-hype distractor filtering (must never select clickbait catalog items)
+ * 4. Catalog grounding (must select by exact ID from provided catalog)
+ * 5. Honest confidence calibration (High/Medium/Low based on signal convergence)
+ */
 export const SYSTEM_INSTRUCTION = `You are the Reels Recommendation System's Senior Interest Inference & Tech Reel Recommendation Agent.
 Analyze student short-form video watch telemetry, penetrate past surface keywords and clickbait formats to infer true underlying technical interest, and select EXACTLY ONE high-quality educational tech Reel from the provided curated catalog.
 
@@ -14,6 +34,24 @@ CORE PRINCIPLES:
 
 Return valid JSON strictly matching the schema.`;
 
+/**
+ * Build the user prompt that serializes a student's watch session reels
+ * and the curated recommendation catalog into a structured text block
+ * for Gemini inference.
+ *
+ * The prompt format is optimized for token density while preserving all
+ * semantically relevant fields needed for accurate interest inference.
+ *
+ * @param sessionReels - Array of reels from the student's watch session.
+ * @param catalog - Array of curated educational tech reel candidates.
+ * @returns Formatted prompt string ready for Gemini's `contents` parameter.
+ *
+ * @example
+ * ```ts
+ * const prompt = buildUserPrompt(session.reels, CATALOG);
+ * // Returns a multi-line string with STUDENT WATCH SESSION and CURATED TECH CATALOG sections
+ * ```
+ */
 export function buildUserPrompt(sessionReels: Reel[], catalog: CatalogReel[]): string {
   const reelsSummary = sessionReels
     .map(

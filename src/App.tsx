@@ -213,7 +213,19 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main id="main-content" tabIndex={-1} aria-label="Reels Recommendation Dashboard" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 space-y-6">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        aria-label="Reels Recommendation Dashboard"
+        aria-busy={isAnalyzing}
+        className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 space-y-6"
+      >
+        {/* Screen Reader Live Region for Dynamic Announcements */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {analysisResult &&
+            `Inference ready: ${analysisResult.interest_detected}. Recommended reel: ${analysisResult.recommended_tech_reel}. Category: ${analysisResult.category}.`}
+        </div>
+
         {/* Session Selector Strip */}
         <SessionSelector
           sessions={sessionsList}
@@ -278,13 +290,13 @@ export default function App() {
           )}
         </div>
 
-        {/* View Content Rendering */}
+        {/* View Content Rendering with Smooth View Transition */}
         {isAnalyzing ? (
           <LoadingState />
         ) : errorMessage ? (
           <ErrorState message={errorMessage} onRetry={() => runAnalysis('analysis')} />
         ) : (
-          <div>
+          <div className="view-transition">
             {/* VIEW 1: REELS GRID */}
             {activeView === 'reels' && (
               <div className="space-y-6">
