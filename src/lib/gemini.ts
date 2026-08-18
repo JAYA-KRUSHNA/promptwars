@@ -129,10 +129,10 @@ export async function analyzeSessionWithGemini(
       const candidateModels = [
         overrideModel,
         process.env.GEMINI_MODEL,
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
+        'gemini-3.5-flash',
         'gemini-3.6-flash',
+        'gemini-3.7-flash',
+        'gemini-3.1-flash-lite-preview',
       ].filter(Boolean) as string[];
 
       let responseText: string | null = null;
@@ -146,7 +146,7 @@ export async function analyzeSessionWithGemini(
               model: modelName,
               contents: userPrompt,
               config: {
-                abortSignal: AbortSignal.timeout(18000), // 18s timeout for structured JSON
+                abortSignal: AbortSignal.timeout(35000), // 35s timeout for full structured JSON
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: 'application/json',
                 temperature: 0.2,
