@@ -387,6 +387,128 @@ export const SESSIONS: Session[] = [
       },
     ],
   },
+  {
+    id: 'session_6',
+    name: 'Session 6: Gaming, Security & Cloud Ecosystem (6-8 Reel Full Spec)',
+    tagline: 'Game Engine Shaders + SQLi Defense + Kubernetes + C++ Meme + Gadgets + Skipped Hype',
+    description: 'A rich 7-reel session spanning gaming graphics, cybersecurity defense, cloud infrastructure, hardware gadgets, and C++ developer culture with an anti-hype distractor skip.',
+    expected_inference: 'Cybersecurity / Cloud / Systems Architecture (Anti-Hype Grounded)',
+    trap_warning: '⚠️ Anti-Hype & Domain Test: Must reject the "Cloud in 7 Days" get-rich-quick distractor and recommend substantive Application Security or Cloud Architecture.',
+    reels: [
+      {
+        id: 'reel_601',
+        title: 'How Unreal Engine 5 Lumen Ray Tracing Actually Works',
+        category: 'Hardware',
+        transcript_or_caption: 'Software ray tracing vs hardware BVH acceleration in GPU shaders for real-time global illumination and reflection probes #gaming #unrealengine #raytracing #shaders',
+        format: 'explainer',
+        hashtags: ['gaming', 'unrealengine', 'raytracing', 'shaders', 'gamedev'],
+        emoji: '🎮',
+        engagement: {
+          watch_percent: 95,
+          rewatch_count: 1,
+          liked: true,
+          shared: false,
+          skipped_early: false,
+        },
+      },
+      {
+        id: 'reel_602',
+        title: 'Hacking a Login Form with SQL Injection in 60s',
+        category: 'Cybersecurity',
+        transcript_or_caption: 'Breaking authentication with 1=1 OR payload and explaining why parameterized queries prevent AST manipulation in PostgreSQL #cybersecurity #appsec #ethicalhacking #sqlinjection',
+        format: 'tutorial',
+        hashtags: ['cybersecurity', 'appsec', 'ethicalhacking', 'sqlinjection', 'infosec'],
+        emoji: '🛡️',
+        engagement: {
+          watch_percent: 100,
+          rewatch_count: 2,
+          liked: true,
+          shared: true,
+          skipped_early: false,
+        },
+      },
+      {
+        id: 'reel_603',
+        title: 'Kubernetes Pod Horizontal Autoscaling in Action',
+        category: 'Cloud',
+        transcript_or_caption: 'Metrics server CPU triggers, ReplicaSet reconciliation loops, and graceful shutdown signal traps in cloud-native microservices #kubernetes #cloud #devops #docker',
+        format: 'tutorial',
+        hashtags: ['kubernetes', 'cloud', 'devops', 'docker', 'containers'],
+        emoji: '☁️',
+        engagement: {
+          watch_percent: 88,
+          rewatch_count: 0,
+          liked: true,
+          shared: false,
+          skipped_early: false,
+        },
+      },
+      {
+        id: 'reel_604',
+        title: 'When the C++ segfault disappears after adding a std::cout',
+        category: 'Other',
+        transcript_or_caption: 'Memory corruption undefined behavior: compiler optimization masks buffer overrun when I/O timing changes at 2am #cppmeme #codinghumor #studentdeveloper',
+        format: 'meme',
+        hashtags: ['cppmeme', 'codinghumor', 'studentdeveloper', 'debugging'],
+        emoji: '💀',
+        engagement: {
+          watch_percent: 90,
+          rewatch_count: 1,
+          liked: true,
+          shared: false,
+          skipped_early: false,
+        },
+      },
+      {
+        id: 'reel_605',
+        title: '240Hz OLED vs 4K IPS for Coding & Gaming',
+        category: 'Hardware',
+        transcript_or_caption: 'Subpixel text clarity with clearType vs 0.03ms pixel response times in competitive gaming and dark mode coding IDEs #gaminggear #oled #desksetup #developerhardware',
+        format: 'comparison',
+        hashtags: ['gaminggear', 'oled', 'desksetup', 'developerhardware'],
+        emoji: '🖥️',
+        engagement: {
+          watch_percent: 75,
+          rewatch_count: 0,
+          liked: false,
+          shared: false,
+          skipped_early: false,
+        },
+      },
+      {
+        id: 'reel_606',
+        title: 'Become a Cloud Engineer in 7 Days — No Experience Needed',
+        category: 'Cloud',
+        transcript_or_caption: 'Secret certification dumps to land a $150k DevOps job with zero Linux knowledge! Click link in bio now! #cloudhype #getrichquick #shortcut',
+        format: 'news',
+        hashtags: ['cloudhype', 'getrichquick', 'shortcut', 'clickbait'],
+        emoji: '⚠️',
+        engagement: {
+          watch_percent: 12,
+          rewatch_count: 0,
+          liked: false,
+          shared: false,
+          skipped_early: true,
+        },
+      },
+      {
+        id: 'reel_607',
+        title: 'Day in the Life of a Cloud Security Engineer',
+        category: 'Career',
+        transcript_or_caption: 'Threat modeling AWS IAM policies, automated SAST/DAST CI/CD pipeline reviews, and incident response drill at a fintech unicorn #techcareer #cloudsec #swe',
+        format: 'vlog',
+        hashtags: ['techcareer', 'cloudsec', 'swe', 'securityengineer'],
+        emoji: '🔒',
+        engagement: {
+          watch_percent: 86,
+          rewatch_count: 0,
+          liked: true,
+          shared: false,
+          skipped_early: false,
+        },
+      },
+    ],
+  },
 ];
 
 // All available reels across all pre-configured test sessions
@@ -394,8 +516,8 @@ export const ALL_REELS: Reel[] = SESSIONS.flatMap((s) => s.reels).filter(
   (reel, idx, self) => self.findIndex((r) => r.id === reel.id) === idx
 );
 
-// Helper to generate a realistic randomized student watch session
-export function generateRandomSession(count = 5): Session {
+// Helper to generate a realistic randomized student watch session (6-8 reels)
+export function generateRandomSession(count = 7): Session {
   // Shuffle all reels
   const shuffled = [...ALL_REELS].sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, Math.max(3, Math.min(count, ALL_REELS.length)));

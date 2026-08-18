@@ -1,6 +1,7 @@
 import React from 'react';
-import { AnalysisResult, AnalysisSource, CatalogReel } from '../lib/types';
+import { AnalysisResult, AnalysisSource, CatalogReel, Reel } from '../lib/types';
 import { Award, Sparkles, CheckCircle2, ArrowRight, ShieldCheck, Bookmark, ExternalLink } from 'lucide-react';
+import { OfficialOutputCard } from './OfficialOutputCard';
 
 interface RecommendationCardProps {
   analysis: AnalysisResult;
@@ -8,6 +9,7 @@ interface RecommendationCardProps {
   onOpenReasoning: () => void;
   source?: AnalysisSource | null;
   latencyMs?: number | null;
+  activeReels?: Reel[];
 }
 
 export const RecommendationCard: React.FC<RecommendationCardProps> = ({
@@ -16,6 +18,7 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
   onOpenReasoning,
   source,
   latencyMs,
+  activeReels = [],
 }) => {
   const recommendedItem = catalog.find((c) => c.id === analysis.recommended_reel_id);
   const alternativeItem = analysis.alternative_recommendation
@@ -149,6 +152,9 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Official Required Schema Output Block */}
+      <OfficialOutputCard analysis={analysis} activeReels={activeReels} />
     </div>
   );
 };

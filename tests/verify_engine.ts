@@ -132,6 +132,29 @@ console.log('\nTEST 5: Session 5 — Mixed/Ambiguous Explorer');
   );
 }
 
+// ── Test 5b: Session 6 (Full 7-Reel Spec: Gaming, Security, Cloud, Memes, Hype Skip) ──
+console.log('\nTEST 5b: Session 6 — 7-Reel Full Spec (Gaming, Security, Cloud, Memes, Hype Skip)');
+{
+  const result = generateDeterministicAnalysis(SESSIONS[5].reels, CATALOG);
+  console.log(`  Winner: ${result.recommended_tech_reel} (${result.recommended_reel_id})`);
+  console.log(`  Category: ${result.category}`);
+  console.log(`  Confidence: ${result.confidence}`);
+  assert(
+    result.category === 'Cybersecurity' || result.category === 'Hardware' || result.category === 'Cloud',
+    'Category is Cybersecurity, Hardware, or Cloud',
+    `Got: ${result.category}`
+  );
+  assert(
+    !CATALOG.find(c => c.id === result.recommended_reel_id)?.is_hype_distractor,
+    'Anti-hype filter successfully rejected "Become a Cloud Engineer in 7 Days"'
+  );
+  assert(
+    result.confidence === 'High' || result.confidence === 'Medium',
+    'Confidence is High or Medium',
+    `Got: ${result.confidence}`
+  );
+}
+
 // ── Test 6: Random session variance ──────────────────────────────────
 console.log('\nTEST 6: Random Session Variance (10 iterations)');
 {

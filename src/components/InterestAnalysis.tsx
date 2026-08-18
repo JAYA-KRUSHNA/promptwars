@@ -1,12 +1,14 @@
 import React from 'react';
-import { AnalysisResult, AnalysisSource } from '../lib/types';
+import { AnalysisResult, AnalysisSource, Reel } from '../lib/types';
 import { Compass, CheckCircle2, ShieldAlert, Sparkles, Zap, HelpCircle } from 'lucide-react';
+import { OfficialOutputCard } from './OfficialOutputCard';
 
 interface InterestAnalysisProps {
   analysis: AnalysisResult;
   onOpenReveal: () => void;
   source?: AnalysisSource | null;
   latencyMs?: number | null;
+  activeReels?: Reel[];
 }
 
 export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
@@ -14,6 +16,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
   onOpenReveal,
   source,
   latencyMs,
+  activeReels = [],
 }) => {
   const confidenceColor: Record<string, string> = {
     High: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -78,7 +81,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
         <div className="mt-5 space-y-3">
           <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Holistic Session Synthesis:
+              Holistic Session Synthesis (WHY):
             </h4>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
               {analysis.why}
@@ -114,7 +117,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
       {/* Signals Breakdown Table */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
         <h3 className="text-base font-bold text-slate-900 mb-1">
-          Implied Signal Breakdown by Reel
+          Implied Signal Breakdown by Reel (CURRENT REEL Analysis)
         </h3>
         <p className="text-xs text-slate-500 mb-4">
           How each watch event was weighted and transformed from literal keywords into cognitive intent.
@@ -124,7 +127,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500 bg-slate-50">
-                <th className="py-2.5 px-3 font-semibold">Watched Reel</th>
+                <th className="py-2.5 px-3 font-semibold">CURRENT REEL</th>
                 <th className="py-2.5 px-3 font-semibold">Surface Keyword</th>
                 <th className="py-2.5 px-3 font-semibold">Inferred Signal</th>
                 <th className="py-2.5 px-3 font-semibold">Signal Weight</th>
@@ -134,7 +137,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
               {analysis.reel_signals.map((sig, i) => (
                 <tr key={i} className="hover:bg-slate-50/80">
                   <td className="py-2.5 px-3 font-medium text-slate-900 max-w-[200px] truncate">
-                    {sig.reel_title}
+                    <span className="text-slate-400 font-mono mr-1">#{i + 1}</span> {sig.reel_title}
                   </td>
                   <td className="py-2.5 px-3 text-slate-500 line-through">
                     {sig.surface_topic}
@@ -160,6 +163,9 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Official Standard Schema Output Card */}
+      <OfficialOutputCard analysis={analysis} activeReels={activeReels} />
     </div>
   );
 };

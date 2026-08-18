@@ -349,6 +349,7 @@ export default function App() {
                   onOpenReveal={() => setShowReasoningModal(true)}
                   source={analysisSource}
                   latencyMs={analysisLatency}
+                  activeReels={currentSession.reels}
                 />
 
                 {/* Next Step Banner */}
@@ -401,6 +402,7 @@ export default function App() {
                   onOpenReasoning={() => setShowReasoningModal(true)}
                   source={analysisSource}
                   latencyMs={analysisLatency}
+                  activeReels={currentSession.reels}
                 />
 
                 {/* Inline Reasoning Graph Preview */}
