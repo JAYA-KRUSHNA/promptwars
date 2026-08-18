@@ -230,38 +230,10 @@ export default function App() {
         hasAnalysis={Boolean(analysisResult)}
         analysisSource={analysisSource}
         analysisLatency={analysisLatency}
-        hasApiKey={isKeyAvailable}
       />
 
       {/* Main Container */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 space-y-6">
-        {/* Dismissible banner when running without Gemini API key */}
-        {!isKeyAvailable && !isKeyBannerDismissed && (
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs text-amber-900 shadow-2xs">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[11px] font-bold text-amber-900">
-                ℹ
-              </span>
-              <span>
-                <strong>No active Gemini API key configured</strong> — using the resilient fallback engine.{' '}
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="font-bold underline text-indigo-700 hover:text-indigo-900 cursor-pointer ml-1"
-                >
-                  Click here to paste your free Gemini API Key ⚙️
-                </button>
-              </span>
-            </div>
-            <button
-              onClick={() => setIsKeyBannerDismissed(true)}
-              className="rounded-lg px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200/80 hover:text-amber-950 transition-colors cursor-pointer shrink-0"
-              title="Dismiss banner"
-            >
-              ✕ Dismiss
-            </button>
-          </div>
-        )}
-
         {/* Session Selector Strip */}
         <SessionSelector
           sessions={sessionsList}
